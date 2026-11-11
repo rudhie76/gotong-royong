@@ -14,7 +14,9 @@ import {
   HelpCircle,
   FolderPlus,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Download,
+  TableProperties
 } from 'lucide-react';
 import { 
   getConfig, 
@@ -33,6 +35,8 @@ export default function PengaturanModal({ onClose, onSaved }) {
 
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [isInitializingSheet, setIsInitializingSheet] = useState(false);
+  const [initSheetResult, setInitSheetResult] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('config'); // 'config' | 'tutorial' | 'script'
 
@@ -63,27 +67,377 @@ export default function PengaturanModal({ onClose, onSaved }) {
     setTestResult(result);
   };
 
+  // Panggil action=setup untuk membuat 21 kolom header di Google Sheets secara otomatis
+  const handleAutoSetupHeaders = async () => {
+    if (!scriptUrl.trim()) {
+      alert("Masukkan URL Web App Google Apps Script terlebih dahulu.");
+      return;
+    }
+    setIsInitializingSheet(true);
+    setInitSheetResult(null);
+
+    try {
+      const sep = scriptUrl.includes("?") ? "&" : "?";
+      const res = await fetch(`${scriptUrl.trim()}${sep}action=setup&_t=${Date.now()}`);
+      const json = await res.json();
+      setIsInitializingSheet(false);
+      setInitSheetResult({
+        success: json.status === "success",
+        message: json.message || "Kolom header Google Sheets berhasil dibuat otomatis!"
+      });
+    } catch (e) {
+      setIsInitializingSheet(false);
+      setInitSheetResult({
+        success: false,
+        message: "Gagal memanggil API: " + e.message
+      });
+    }
+  };
+
   const copyAppsScript = () => {
-    const scriptText = `/**
+    const code = document.getElementById("raw-code-gs")?.innerText || "";
+    navigator.clipboard.writeText(code);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 3000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+        
+        {/* Header Modal */}
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-200 flex items-center justify-between z-10">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+              <Settings className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-base">
+                Pengaturan Database & Kolom Google Sheets
+              </h3>
+              <p className="text-xs text-slate-500">
+                Akun Google Pengelola: <strong className="text-emerald-800">waruppusigap@gmail.com</strong>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Tab Selector */}
+        <div className="px-6 pt-4 border-b border-slate-200 flex space-x-4 text-xs font-semibold">
+          <button
+            onClick={() => setActiveTab('config')}
+            className={`pb-3 px-1 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'config'
+                ? 'border-emerald-600 text-emerald-800'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Form Konfigurasi & Inisialisasi
+          </button>
+          <button
+            onClick={() => setActiveTab('tutorial')}
+            className={`pb-3 px-1 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'tutorial'
+                ? 'border-emerald-600 text-emerald-800'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Panduan Lengkap
+          </button>
+          <button
+            onClick={() => setActiveTab('script')}
+            className={`pb-3 px-1 border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'script'
+                ? 'border-emerald-600 text-emerald-800'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Salin Kode Apps Script
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-6">
+          
+          {/* TAB 1: FORM KONFIGURASI */}
+          {activeTab === 'config' && (
+            <div className="space-y-5">
+              
+              {/* Solusi Langsung Masalah "Kenapa belum ada kolom di database" */}
+              <div className="bg-amber-50/90 p-4 rounded-2xl border border-amber-300 text-xs text-amber-950">
+                <div className="flex items-start space-x-2.5">
+                  <TableProperties className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-2 flex-1">
+                    <span className="font-bold text-sm block text-amber-900">
+                      Kenapa belum ada kolom di Google Sheet Anda?
+                    </span>
+                    <p className="text-slate-700 leading-relaxed">
+                      Google Spreadsheet yang baru dibuat masih berupa sheet kosong (polos). Kolom header (Kolom A s/d U) belum terbentuk karena belum pernah diinisialisasi.
+                    </p>
+                    <div className="pt-1 flex flex-wrap gap-2">
+                      <a
+                        href="./Template_Database_Gotong_Royong_Waru.xlsx"
+                        download="Template_Database_Gotong_Royong_Waru.xlsx"
+                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Template Excel (.xlsx)</span>
+                      </a>
+                      <a
+                        href="./Template_Database_Gotong_Royong_Waru.csv"
+                        download="Template_Database_Gotong_Royong_Waru.csv"
+                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl font-semibold cursor-pointer transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Download CSV (.csv)</span>
+                      </a>
+                    </div>
+                    <p className="text-[11px] text-amber-800 italic">
+                      💡 Anda cukup upload berkas Excel di atas ke Google Drive akun <strong>waruppusigap@gmail.com</strong> lalu klik "Buka dengan Google Spreadsheet", maka 21 kolom langsung jadi!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* URL Web App */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  URL Google Apps Script Web App <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                    value={scriptUrl}
+                    onChange={(e) => setScriptUrl(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-emerald-500 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleTestPing}
+                    disabled={isTesting || !scriptUrl}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+                  >
+                    {isTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+                    <span>{isTesting ? "Mengecek..." : "Test Koneksi"}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Format harus berakhiran <code className="text-emerald-700 font-bold">/exec</code>.
+                </p>
+
+                {/* Tombol Buat Kolom Otomatis via API */}
+                {scriptUrl && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">Buat Kolom Otomatis ke Google Sheets:</span>
+                      <span className="text-[11px] text-slate-500">Kirim instruksi ke Apps Script untuk membuat 21 kolom header seketika.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAutoSetupHeaders}
+                      disabled={isInitializingSheet}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+                    >
+                      <TableProperties className="w-3.5 h-3.5" />
+                      <span>{isInitializingSheet ? "Membuat Kolom..." : "Buat Kolom Sekarang"}</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Status Inisialisasi */}
+                {initSheetResult && (
+                  <div className={`mt-2 p-3 rounded-xl border text-xs flex items-center space-x-2 ${
+                    initSheetResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-red-50 text-red-800 border-red-300'
+                  }`}>
+                    {initSheetResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />}
+                    <span>{initSheetResult.message}</span>
+                  </div>
+                )}
+
+                {/* Test Result Display */}
+                {testResult && (
+                  <div className={`mt-2 p-3 rounded-xl border text-xs flex items-center space-x-2 ${
+                    testResult.success ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-red-50 text-red-800 border-red-300'
+                  }`}>
+                    {testResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />}
+                    <span>{testResult.message}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ID Google Sheet & ID Folder Drive */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    ID Spreadsheet Google Sheets
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE"
+                    value={sheetId}
+                    onChange={(e) => setSheetId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-emerald-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Kode di URL browser di antara <code className="text-slate-600">/d/</code> dan <code className="text-slate-600">/edit</code>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    ID Folder Google Drive Tujuan
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: 1e92d8F4k... (Folder di waruppusigap@gmail.com)"
+                    value={folderId}
+                    onChange={(e) => setFolderId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-emerald-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Buka folder di Google Drive waruppusigap, ambil kode di akhir link folder
+                  </p>
+                </div>
+              </div>
+
+              {/* Standar HOK Rate */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Standar Nilai Rupiah Tenaga Kerja per Orang (HOK Gotong Royong)
+                </label>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-3 top-2 text-xs font-bold text-slate-500">Rp</span>
+                  <input
+                    type="number"
+                    step="10000"
+                    value={defaultHokRate}
+                    onChange={(e) => setDefaultHokRate(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-emerald-500"
+                  />
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 2: PANDUAN */}
+          {activeTab === 'tutorial' && (
+            <div className="space-y-4 text-xs text-slate-700">
+              
+              <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200">
+                <h4 className="font-bold text-emerald-900 text-sm mb-1">
+                  CARA PALING PRAKTIS MEMBUAT DATABASE & KOLOM:
+                </h4>
+                <p className="text-slate-700 leading-relaxed mb-3">
+                  Pilih salah satu dari 2 cara mudah di bawah ini agar kolom di Google Sheets langsung terisi rapi:
+                </p>
+                <div className="space-y-2">
+                  <div className="bg-white p-3 rounded-xl border border-emerald-300">
+                    <span className="font-bold text-emerald-800 block">Cara A (Upload Berkas Jadi):</span>
+                    <p className="text-slate-600">
+                      1. Download berkas <strong>Template_Database_Gotong_Royong_Waru.xlsx</strong>.<br />
+                      2. Buka <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-emerald-700 underline font-semibold">drive.google.com</a> akun <code>waruppusigap@gmail.com</code>.<br />
+                      3. Klik <strong>Baru (New)</strong> &gt; <strong>Upload file</strong> &gt; pilih file Excel tadi.<br />
+                      4. Klik ganda file tersebut lalu pilih <strong>Buka dengan Google Spreadsheet</strong>. Selesai!
+                    </p>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-xl border border-emerald-300">
+                    <span className="font-bold text-emerald-800 block">Cara B (Menu Otomatis di Google Sheet):</span>
+                    <p className="text-slate-600">
+                      1. Buka Google Sheet Anda.<br />
+                      2. Buka <strong>Ekstensi</strong> &gt; <strong>Apps Script</strong>, pasang kode dari tab "Salin Kode Apps Script".<br />
+                      3. Di bilah atas Apps Script, pilih fungsi <strong><code>inisialisasiDatabaseOtomatis</code></strong> lalu klik tombol <strong>Run (Jalankan)</strong>.<br />
+                      4. Buka kembali Google Sheet Anda, seluruh 21 kolom (A s/d U) langsung otomatis dibuat lengkap dengan warna dan garis border!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 3: SALIN KODE SCRIPT */}
+          {activeTab === 'script' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">
+                    Script Google Apps Script (Code.gs)
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Sudah dilengkapi fungsi otomatis <code>inisialisasiDatabaseOtomatis()</code> dan menu Google Sheet!
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyAppsScript}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs"
+                >
+                  {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  <span>{isCopied ? "Berhasil Disalin!" : "Salin Seluruh Kode"}</span>
+                </button>
+              </div>
+
+              <div className="bg-slate-900 rounded-2xl p-4 font-mono text-[11px] text-emerald-400 overflow-x-auto max-h-72 border border-slate-800">
+                <pre id="raw-code-gs">{`/**
  * SISTEM INFORMASI PELAPORAN GOTONG ROYONG (SIGAP GOTONG ROYONG)
  * KECAMATAN WARU - KABUPATEN PENAJAM PASER UTARA
  * Akun Pengelola: waruppusigap@gmail.com
  */
 
-var SPREADSHEET_ID = "${sheetId.trim()}"; // ID Spreadsheet Anda (atau kosongkan jika script terpasang di Sheet)
+var SPREADSHEET_ID = "${sheetId.trim()}";
 var SHEET_NAME = "Sheet1";
-var ROOT_FOLDER_ID = "${folderId.trim()}"; // ID Folder Google Drive waruppusigap@gmail.com
+var ROOT_FOLDER_ID = "${folderId.trim()}";
+
+var DAFTAR_KOLOM_HEADER = ${JSON.stringify(SHEET_COLUMNS, null, 2)};
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu("🏛️ Menu Kecamatan Waru")
+    .addItem("⚡ Inisialisasi Kolom Header Otomatis (A - U)", "inisialisasiDatabaseOtomatis")
+    .addItem("📋 Isi Data Contoh Awal (Simulasi)", "isiDataContohAwal")
+    .addToUi();
+}
+
+function inisialisasiDatabaseOtomatis() {
+  var sheet = getSheetInstance();
+  sheet.getRange(1, 1, 1, DAFTAR_KOLOM_HEADER.length).setValues([DAFTAR_KOLOM_HEADER]);
+  var headerRange = sheet.getRange(1, 1, 1, DAFTAR_KOLOM_HEADER.length);
+  headerRange.setFontWeight("bold").setFontColor("#ffffff").setBackground("#065f46")
+             .setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
+  sheet.setRowHeight(1, 40);
+  sheet.setFrozenRows(1);
+  sheet.getRange("H2:H").setNumberFormat('"Rp"#,##0');
+  sheet.getRange("K2:K").setNumberFormat('"Rp"#,##0');
+  sheet.getRange("O2:O").setNumberFormat('"Rp"#,##0');
+  sheet.getRange("G2:G").setHorizontalAlignment("center");
+  for (var i = 1; i <= DAFTAR_KOLOM_HEADER.length; i++) {
+    sheet.autoResizeColumn(i);
+    if (sheet.getColumnWidth(i) < 140) sheet.setColumnWidth(i, 160);
+  }
+}
 
 function doGet(e) {
   try {
     var action = e && e.parameter && e.parameter.action ? e.parameter.action : "getData";
     if (action === "ping") {
-      return createJsonResponse({ status: "success", message: "API Siaga & Terhubung!", timestamp: new Date().toISOString() });
+      return createJsonResponse({ status: "success", message: "API Siaga & Terhubung!" });
+    }
+    if (action === "setup") {
+      inisialisasiDatabaseOtomatis();
+      return createJsonResponse({ status: "success", message: "Kolom header Google Sheets berhasil dibuat otomatis!" });
     }
     var sheet = getSheetInstance();
     var data = sheet.getDataRange().getValues();
     if (data.length <= 1) {
-      return createJsonResponse({ status: "success", total: 0, headers: data[0] || [], data: [] });
+      return createJsonResponse({ status: "success", total: 0, headers: data[0] || DAFTAR_KOLOM_HEADER, data: [] });
     }
     var headers = data[0];
     var rows = [];
@@ -111,7 +465,6 @@ function doPost(e) {
   try { lock.waitLock(30000); } catch (t) {
     return createJsonResponse({ status: "error", message: "Server sibuk, coba beberapa saat lagi." });
   }
-
   try {
     var payload = JSON.parse(e.postData.contents);
     var timestampStr = Utilities.formatDate(new Date(), "Asia/Makassar", "dd/MM/yyyy HH:mm:ss");
@@ -124,7 +477,7 @@ function doPost(e) {
     var urlDaftarHadir = saveFileToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
 
     var sheet = getSheetInstance();
-    ensureHeaders(sheet);
+    if (sheet.getLastRow() === 0) inisialisasiDatabaseOtomatis();
 
     var rowData = [
       timestampStr,
@@ -151,11 +504,9 @@ function doPost(e) {
     ];
 
     sheet.appendRow(rowData);
-
     return createJsonResponse({
       status: "success",
-      message: "Laporan berhasil disimpan ke Google Sheets & Drive!",
-      timestamp: timestampStr,
+      message: "Laporan berhasil disimpan!",
       driveLinks: {
         fotoKegiatan: urlFotoKegiatan,
         fotoKonsumsi: urlFotoKonsumsi,
@@ -164,7 +515,7 @@ function doPost(e) {
         daftarHadir: urlDaftarHadir
       }
     });
-  } catch (err) {
+  } catch(err) {
     return createJsonResponse({ status: "error", message: err.toString() });
   } finally {
     lock.releaseLock();
@@ -173,8 +524,7 @@ function doPost(e) {
 
 function getSheetInstance() {
   var ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
-  return sheet;
+  return ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
 }
 
 function getTargetFolder(namaDesa) {
@@ -202,9 +552,7 @@ function saveFileToDrive(fileObj, prefix, folder) {
     var file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return file.getUrl();
-  } catch(e) {
-    return "";
-  }
+  } catch(e) { return ""; }
 }
 
 function cleanNumber(val) {
@@ -214,313 +562,9 @@ function cleanNumber(val) {
   return str ? parseInt(str, 10) : 0;
 }
 
-function ensureHeaders(sheet) {
-  if (sheet.getLastRow() === 0) {
-    var h = ${JSON.stringify(SHEET_COLUMNS)};
-    sheet.appendRow(h);
-    sheet.getRange(1, 1, 1, h.length).setFontWeight("bold").setBackground("#e6f4ea");
-  }
-}
-
 function createJsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
-}`;
-
-    navigator.clipboard.writeText(scriptText);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 3000);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
-        
-        {/* Header Modal */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-200 flex items-center justify-between z-10">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
-              <Settings className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 text-base">
-                Pengaturan Koneksi Google Sheets & Drive
-              </h3>
-              <p className="text-xs text-slate-500">
-                Hubungkan ke akun: <strong className="text-emerald-800">waruppusigap@gmail.com</strong>
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tab Selector */}
-        <div className="px-6 pt-4 border-b border-slate-200 flex space-x-4 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('config')}
-            className={`pb-3 px-1 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'config'
-                ? 'border-emerald-600 text-emerald-800'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Form Konfigurasi
-          </button>
-          <button
-            onClick={() => setActiveTab('tutorial')}
-            className={`pb-3 px-1 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'tutorial'
-                ? 'border-emerald-600 text-emerald-800'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Panduan Setup Langkah-demi-Langkah
-          </button>
-          <button
-            onClick={() => setActiveTab('script')}
-            className={`pb-3 px-1 border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'script'
-                ? 'border-emerald-600 text-emerald-800'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            Salin Kode Apps Script (Code.gs)
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className="p-6">
-          
-          {/* TAB 1: FORM KONFIGURASI */}
-          {activeTab === 'config' && (
-            <div className="space-y-5">
-              
-              <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200 text-xs text-emerald-950 flex items-start space-x-3">
-                <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold block">Status Integrasi Google Cloud Waru Sigap</span>
-                  <p className="mt-0.5 text-slate-700 leading-relaxed">
-                    Setelah Anda mendeploy Google Apps Script di akun <strong className="text-emerald-900">waruppusigap@gmail.com</strong>, tempelkan link Web App URL di bawah ini. Aplikasi akan langsung terhubung secara live ke Google Sheets dan Google Drive tanpa perlu hosting berbayar!
-                  </p>
-                </div>
-              </div>
-
-              {/* URL Web App */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  URL Google Apps Script Web App <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-                    value={scriptUrl}
-                    onChange={(e) => setScriptUrl(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-emerald-500 focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleTestPing}
-                    disabled={isTesting || !scriptUrl}
-                    className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 transition-colors"
-                  >
-                    {isTesting ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    )}
-                    <span>{isTesting ? "Mengecek..." : "Test Koneksi"}</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Format harus berakhiran <code className="text-emerald-700 font-bold">/exec</code>.
-                </p>
-
-                {/* Test Result Display */}
-                {testResult && (
-                  <div className={`mt-2 p-3 rounded-xl border text-xs flex items-center space-x-2 ${
-                    testResult.success 
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                      : 'bg-red-50 text-red-800 border-red-300'
-                  }`}>
-                    {testResult.success ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                    )}
-                    <span>{testResult.message}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* ID Google Sheet & ID Folder Drive */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    ID Spreadsheet Google Sheets
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE"
-                    value={sheetId}
-                    onChange={(e) => setSheetId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-emerald-500"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Bisa dilihat pada URL Google Sheet di browser di antara <code className="text-slate-600">/d/</code> dan <code className="text-slate-600">/edit</code>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    ID Folder Google Drive Tujuan
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Contoh: 1e92d8F4k... (Folder di waruppusigap@gmail.com)"
-                    value={folderId}
-                    onChange={(e) => setFolderId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-emerald-500"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Buka folder di Google Drive akun waruppusigap@gmail.com, ambil kode di akhir URL folder
-                  </p>
-                </div>
-              </div>
-
-              {/* Standar HOK Rate */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Standar Nilai Rupiah Tenaga Kerja per Orang (HOK Gotong Royong)
-                </label>
-                <div className="relative max-w-xs">
-                  <span className="absolute left-3 top-2 text-xs font-bold text-slate-500">Rp</span>
-                  <input
-                    type="number"
-                    step="10000"
-                    value={defaultHokRate}
-                    onChange={(e) => setDefaultHokRate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-emerald-500"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Digunakan untuk tombol "Hitung Otomatis HOK" di formulir input.
-                </p>
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 2: PANDUAN LANGKAH DEMI LANGKAH */}
-          {activeTab === 'tutorial' && (
-            <div className="space-y-4 text-xs text-slate-700">
-              
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center space-x-2 text-emerald-800 font-bold text-sm">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">1</span>
-                  <h4>Login ke Akun waruppusigap@gmail.com</h4>
-                </div>
-                <p className="text-slate-600 pl-7 leading-relaxed">
-                  Buka peramban Google Chrome dan pastikan Anda sudah masuk (login) menggunakan akun <strong>waruppusigap@gmail.com</strong>.
-                </p>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center space-x-2 text-emerald-800 font-bold text-sm">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">2</span>
-                  <h4>Buka Google Drive & Buat Folder Berkas</h4>
-                </div>
-                <p className="text-slate-600 pl-7 leading-relaxed">
-                  Buka <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-emerald-700 underline font-semibold">drive.google.com</a>. Buat folder baru, beri nama misalnya: <code className="bg-slate-200 px-1 py-0.5 rounded font-bold">DOKUMEN_GOTONG_ROYONG_WARU</code>. Buka folder tersebut dan salin ID foldernya dari URL di browser.
-                </p>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center space-x-2 text-emerald-800 font-bold text-sm">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">3</span>
-                  <h4>Buka Google Sheets & Pasang Apps Script</h4>
-                </div>
-                <p className="text-slate-600 pl-7 leading-relaxed">
-                  Buka file Google Sheet pelaporan Anda (atau buat baru). Klik menu <strong>Ekstensi (Extensions)</strong> &gt; <strong>Apps Script</strong>. Hapus isi bawaan di editor, lalu salin dan tempelkan kode dari tab <em>"Salin Kode Apps Script"</em> di aplikasi ini.
-                </p>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center space-x-2 text-emerald-800 font-bold text-sm">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">4</span>
-                  <h4>Terapkan (Deploy) Sebagai Web App</h4>
-                </div>
-                <div className="pl-7 space-y-2 text-slate-600">
-                  <p>Di halaman editor Apps Script, klik tombol biru <strong>Deploy (Terapkan)</strong> &gt; <strong>New deployment (Penerapan baru)</strong>:</p>
-                  <ul className="list-disc list-inside space-y-1 bg-white p-3 rounded-xl border border-slate-200">
-                    <li>Pilih jenis (roda gigi): <strong>Web app (Aplikasi Web)</strong></li>
-                    <li>Deskripsi: <em>API Gotong Royong Waru</em></li>
-                    <li>Execute as (Jalankan sebagai): <strong>Me (waruppusigap@gmail.com)</strong></li>
-                    <li>Who has access (Yang memiliki akses): <strong className="text-emerald-700">Anyone (Siapa saja)</strong></li>
-                  </ul>
-                  <p>Klik <strong>Deploy</strong>, izinkan akses akun Google (Authorize Access), lalu salin <strong>Web App URL</strong> yang dihasilkan.</p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex items-center space-x-2 text-emerald-800 font-bold text-sm">
-                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">5</span>
-                  <h4>Tempelkan URL di Menu Konfigurasi Aplikasi</h4>
-                </div>
-                <p className="text-slate-600 pl-7 leading-relaxed">
-                  Kembali ke tab <em>"Form Konfigurasi"</em> di aplikasi ini, tempelkan URL tersebut, klik <strong>Test Koneksi</strong>, lalu klik <strong>Simpan Pengaturan</strong>. Selesai!
-                </p>
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 3: SALIN KODE SCRIPT */}
-          {activeTab === 'script' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">
-                    Script Google Apps Script (Code.gs)
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    File ini sudah disesuaikan dengan folder & sheet ID yang Anda masukkan di form.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyAppsScript}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs"
-                >
-                  {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{isCopied ? "Berhasil Disalin!" : "Salin Seluruh Kode"}</span>
-                </button>
-              </div>
-
-              <div className="bg-slate-900 rounded-2xl p-4 font-mono text-[11px] text-emerald-400 overflow-x-auto max-h-72 border border-slate-800">
-                <pre>{`// Google Apps Script Backend Siap Pakai
-// Paste script ini di Ekstensi > Apps Script Google Sheet Anda
-// Klik Deploy > New Deployment > Web App > Access: Anyone`}</pre>
-                <p className="text-slate-400 mt-2">
-                  (Klik tombol "Salin Seluruh Kode" di pojok kanan atas untuk menyalin naskah lengkap).
-                </p>
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
-                <span className="font-bold text-slate-800 block mb-1">
-                  Format Header Kolom Google Sheet (Sesuai Spreadsheet Anda):
-                </span>
-                <div className="flex flex-wrap gap-1 mt-1 text-[10px]">
-                  {SHEET_COLUMNS.map((col, idx) => (
-                    <span key={idx} className="bg-white px-2 py-0.5 rounded border border-slate-300 font-mono text-slate-700">
-                      {col}
-                    </span>
-                  ))}
-                </div>
+}`}</pre>
               </div>
             </div>
           )}

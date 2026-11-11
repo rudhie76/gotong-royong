@@ -4,39 +4,172 @@
  * KECAMATAN WARU - KABUPATEN PENAJAM PASER UTARA
  * Akun Pengelola: waruppusigap@gmail.com
  * ==============================================================================
- * 
- * Script ini berfungsi sebagai Web API Backend yang menerima pengiriman data form
- * dari Web App Pelaporan Gotong Royong:
- * 1. Menerima file upload (Foto Kegiatan, Konsumsi, Material, Video, Daftar Hadir)
- * 2. Menyimpan file tersebut secara otomatis ke Folder Google Drive yang ditentukan
- * 3. Menghasilkan link Google Drive untuk setiap file
- * 4. Menyimpan baris laporan baru ke dalam Google Sheets secara real-time
- * 5. Menyediakan data laporan (GET request) untuk Dashboard & Rekapitulasi
- * ==============================================================================
  */
 
 // ================= KONFIGURASI =================
 // Masukkan ID Spreadsheet Anda (Bisa diambil dari URL Google Sheet di antara /d/ dan /edit)
-var SPREADSHEET_ID = ""; // Kosongkan jika script ini dibuat langsung dari 'Ekstensi > Apps Script' pada Google Sheet terkait
+// Jika script ini dibuat langsung dari 'Ekstensi > Apps Script' pada spreadsheet terkait,
+// Anda dapat mengosongkannya ("").
+var SPREADSHEET_ID = ""; 
 
 // Nama Tab Sheet tempat data disimpan
-var SHEET_NAME = "Sheet1"; // atau nama sheet Anda, misal: "Data Laporan" atau "Form Responses 1"
+var SHEET_NAME = "Sheet1";
 
-// Masukkan ID Folder Google Drive tempat menyimpan berkas (buka folder drive di waruppusigap@gmail.com, lihat ID di URL)
-// Contoh URL: https://drive.google.com/drive/folders/1a2b3c4d5e... -> ID adalah "1a2b3c4d5e..."
+// Masukkan ID Folder Google Drive tempat menyimpan berkas di waruppusigap@gmail.com
+// Contoh: URL drive.google.com/drive/folders/1a2b3c... -> ID adalah "1a2b3c..."
 var ROOT_FOLDER_ID = ""; 
 
-// ================= HANDLER UTAMA =================
+// Daftar 21 Kolom Header Resmi Sesuai Format Kecamatan Waru
+var DAFTAR_KOLOM_HEADER = [
+  "Timestamp",
+  "Kecamatan/Kelurahan/Desa",
+  "Bidang Kegiatan",
+  "Tanggal/Hari/Jam Kegiatan",
+  "Deskripsi Kegiatan",
+  "Lokasi Kegiatan",
+  "Jumlah Orang Yang Hadir",
+  "Jumlah Orang (Nilai Rupiah)",
+  "Dokumentasi/Foto Kegiatan",
+  "Jenis Konsumsi",
+  "Jenis Konsumsi (Nilai Rupiah)",
+  "Foto Konsumsi",
+  "Peralatan Yang Digunakan",
+  "Material Yang Digunakan",
+  "Material Yang Digunakan (Nilai Rupiah)",
+  "Foto Material",
+  "Video Kegiatan",
+  "Daftar Hadir Kegiatan",
+  "Capaian Dalam Kegiatan",
+  "Kendala Dalam Kegiatan",
+  "Catatan / Keterangan Tambahan"
+];
+
+// ================= MENU OTOMATIS DI GOOGLE SHEET =================
 
 /**
- * Endpoint GET: Digunakan untuk mengambil data laporan untuk dashboard & rekapitulasi,
- * atau untuk testing status koneksi web app.
+ * Menu otomatis yang akan muncul di bilah menu Google Sheets saat file dibuka
  */
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu("🏛️ Menu Kecamatan Waru")
+    .addItem("⚡ Inisialisasi Kolom Header Otomatis (A - U)", "inisialisasiDatabaseOtomatis")
+    .addItem("📋 Isi Data Contoh Awal (Simulasi)", "isiDataContohAwal")
+    .addSeparator()
+    .addItem("📂 Cek Folder Drive Penyimpanan", "cekStatusFolderDrive")
+    .addToUi();
+}
+
+/**
+ * FUNGSI 1-KLIK UNTUK MEMBUAT SELURUH KOLOM DATABASE:
+ * Klik fungsi ini lalu klik tombol 'Run / Jalankan' di editor Apps Script.
+ * Fungsi ini akan langsung membuat 21 kolom header lengkap dari kolom A sampai U
+ * dengan format warna hijau resmi, teks tebal, dan auto-resize lebar kolom!
+ */
+function inisialisasiDatabaseOtomatis() {
+  var sheet = getSheetInstance();
+  
+  // Jika sheet sudah ada data di baris 1, tanyakan konfirmasi atau timpa header
+  sheet.getRange(1, 1, 1, DAFTAR_KOLOM_HEADER.length).setValues([DAFTAR_KOLOM_HEADER]);
+  
+  // Beri gaya visual profesional pada Header (Hijau Emerald resmi, teks putih tebal)
+  var headerRange = sheet.getRange(1, 1, 1, DAFTAR_KOLOM_HEADER.length);
+  headerRange.setFontWeight("bold")
+             .setFontColor("#ffffff")
+             .setBackground("#065f46") // Emerald 800
+             .setHorizontalAlignment("center")
+             .setVerticalAlignment("middle")
+             .setWrap(true);
+  
+  sheet.setRowHeight(1, 40);
+  
+  // Bekukan baris pertama agar header tetap terlihat saat scroll ke bawah
+  sheet.setFrozenRows(1);
+
+  // Format kolom Rupiah (Kolom H, K, O) menjadi format mata uang Indonesia Rp
+  sheet.getRange("H2:H").setNumberFormat('"Rp"#,##0');
+  sheet.getRange("K2:K").setNumberFormat('"Rp"#,##0');
+  sheet.getRange("O2:O").setNumberFormat('"Rp"#,##0');
+
+  // Format kolom Jumlah Hadir (Kolom G) rata tengah
+  sheet.getRange("G2:G").setHorizontalAlignment("center");
+
+  // Sesuaikan lebar kolom
+  for (var i = 1; i <= DAFTAR_KOLOM_HEADER.length; i++) {
+    sheet.autoResizeColumn(i);
+    // Beri batas minimal lebar kolom agar nyaman dibaca
+    if (sheet.getColumnWidth(i) < 140) {
+      sheet.setColumnWidth(i, 160);
+    }
+  }
+
+  Logger.log("✅ Berhasil! 21 Kolom Database Gotong Royong siap digunakan.");
+  try {
+    SpreadsheetApp.getUi().alert("✅ Berhasil!\n\nSeluruh 21 kolom database pelaporan gotong royong (Kolom A s/d U) telah dibuat dan diformat rapi.");
+  } catch(e) {}
+}
+
+/**
+ * Fungsi pembantu untuk memasukkan sampel data awal jika diinginkan
+ */
+function isiDataContohAwal() {
+  var sheet = getSheetInstance();
+  inisialisasiDatabaseOtomatis();
+
+  if (sheet.getLastRow() > 1) {
+    try {
+      SpreadsheetApp.getUi().alert("Sheet sudah berisi data baris. Data contoh tidak ditambahkan untuk mencegah duplikasi.");
+    } catch(e) {}
+    return;
+  }
+
+  var contoh = [
+    [
+      "21/08/2026 16:11:32", "Kecamatan Waru", "Lingkungan", "Sabtu, 21 Mei 2026, 08.00 Wita",
+      "Membersihkan Halaman Kantor", "Kantor Kecamatan Waru", 20, 300000,
+      "https://drive.google.com/open?id=sample_foto_1", "Gorengan dan minuman", 250000,
+      "https://drive.google.com/open?id=sample_foto_konsumsi_1", "Cangkul, mesin rumput, parang",
+      "Obat Rumput", 25000, "https://drive.google.com/open?id=sample_material_1",
+      "https://drive.google.com/open?id=sample_video_1", "https://drive.google.com/open?id=sample_hadir_1",
+      "Halaman kantor bersih dan saluran lancar", "-", "Rutin diadakan Jumat bersih"
+    ],
+    [
+      "28/08/2026 10:48:41", "Desa Sesulu", "Lingkungan", "Jumat, 05 Nov 2026",
+      "Kegiatan Gotong royong pembersihan drainase", "Wilayah RT/001 dan RT/011", 25, 4750000,
+      "https://drive.google.com/open?id=sample_foto_2", "Snack dan Air Mineral", 450000,
+      "https://drive.google.com/open?id=sample_foto_konsumsi_2", "Cangkul, sapu lidi, parang dll",
+      "Semen", 75000, "https://drive.google.com/open?id=sample_material_2",
+      "https://drive.google.com/open?id=sample_video_2", "https://drive.google.com/open?id=sample_hadir_2",
+      "Drainase 250 meter lancar", "Parit agak longsor", "Swadaya warga sangat baik"
+    ]
+  ];
+
+  for (var r = 0; r < contoh.length; r++) {
+    sheet.appendRow(contoh[r]);
+  }
+
+  try {
+    SpreadsheetApp.getUi().alert("✅ Data contoh berhasil dimasukkan!");
+  } catch(e) {}
+}
+
+/**
+ * Cek status folder penyimpanan di Google Drive waruppusigap@gmail.com
+ */
+function cekStatusFolderDrive() {
+  var folder = getTargetFolder("Test Folder");
+  var msg = "Folder Drive terhubung!\nNama Folder: " + folder.getName() + "\nURL: " + folder.getUrl();
+  Logger.log(msg);
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+  } catch(e) {}
+}
+
+// ================= HANDLER WEB APP (API) =================
+
 function doGet(e) {
   try {
     var action = e && e.parameter && e.parameter.action ? e.parameter.action : "getData";
     
-    // Uji koneksi / ping
     if (action === "ping") {
       return createJsonResponse({
         status: "success",
@@ -45,7 +178,14 @@ function doGet(e) {
       });
     }
 
-    // Ambil data laporan dari Google Sheets
+    if (action === "setup") {
+      inisialisasiDatabaseOtomatis();
+      return createJsonResponse({
+        status: "success",
+        message: "Header kolom Google Sheet berhasil dibuat secara otomatis!"
+      });
+    }
+
     var sheet = getSheetInstance();
     var data = sheet.getDataRange().getValues();
 
@@ -53,7 +193,7 @@ function doGet(e) {
       return createJsonResponse({
         status: "success",
         total: 0,
-        headers: data.length === 1 ? data[0] : [],
+        headers: data.length === 1 ? data[0] : DAFTAR_KOLOM_HEADER,
         data: []
       });
     }
@@ -70,9 +210,8 @@ function doGet(e) {
         if (val !== "" && val !== null && val !== undefined) {
           isEmptyRow = false;
         }
-        // Format tanggal jika objek Date
         if (val instanceof Date) {
-          val = formatDateIndo(val);
+          val = Utilities.formatDate(val, "Asia/Makassar", "dd/MM/yyyy HH:mm");
         }
         rowObj[key] = val;
       }
@@ -97,12 +236,8 @@ function doGet(e) {
   }
 }
 
-/**
- * Endpoint POST: Menerima pengiriman laporan kegiatan gotong royong dari aplikasi web
- */
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  // Kunci script selama maks 30 detik untuk mencegah tabrakan data saat banyak orang submit bersamaan
   try {
     lock.waitLock(30000);
   } catch (t) {
@@ -120,81 +255,51 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents);
     var timestampStr = Utilities.formatDate(new Date(), "Asia/Makassar", "dd/MM/yyyy HH:mm:ss");
 
-    // Persiapkan Folder Penyimpanan di Google Drive
     var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
 
-    // Simpan file-file yang diunggah ke Google Drive dan ambil link URL-nya
     var urlFotoKegiatan = saveFileToDrive(payload.fotoKegiatan, "Foto_Kegiatan", targetFolder);
     var urlFotoKonsumsi = saveFileToDrive(payload.fotoKonsumsi, "Foto_Konsumsi", targetFolder);
     var urlFotoMaterial = saveFileToDrive(payload.fotoMaterial, "Foto_Material", targetFolder);
     var urlVideoKegiatan = payload.videoUrl || saveFileToDrive(payload.videoKegiatan, "Video_Kegiatan", targetFolder);
     var urlDaftarHadir = saveFileToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
 
-    // Ambil instansi sheet
     var sheet = getSheetInstance();
-
+    
     // Pastikan header kolom sudah ada jika sheet masih kosong
-    ensureHeaders(sheet);
-
-    // Susun baris data persis sesuai susunan kolom Google Sheets:
-    // A: Timestamp
-    // B: Kecamatan/Kelurahan/Desa
-    // C: Bidang Kegiatan
-    // D: Tanggal/Hari/Jam Kegiatan
-    // E: Deskripsi Kegiatan
-    // F: Lokasi Kegiatan
-    // G: Jumlah Orang Yang Hadir
-    // H: Jumlah Orang (Nilai Rupiah)
-    // I: Dokumentasi/Foto Kegiatan
-    // J: Jenis Konsumsi
-    // K: Jenis Konsumsi (Nilai Rupiah)
-    // L: Foto Konsumsi
-    // M: Peralatan Yang Digunakan
-    // N: Material Yang Digunakan
-    // O: Material Yang Digunakan (Nilai Rupiah)
-    // P: Foto Material (Nilai Rupiah) / Foto Material
-    // Q: Video Kegiatan
-    // R: Daftar Hadir Kegiatan
-    // S: Capaian Dalam Kegiatan
-    // T: Kendala Dalam Kegiatan
-    // U: Catatan / Keterangan Tambahan
+    if (sheet.getLastRow() === 0) {
+      inisialisasiDatabaseOtomatis();
+    }
 
     var rowData = [
-      timestampStr,                                         // A: Timestamp
-      payload.desa || "Kecamatan Waru",                    // B: Kecamatan/Kelurahan/Desa
-      payload.bidangKegiatan || "Lingkungan",              // C: Bidang Kegiatan
-      payload.waktuKegiatan || "",                         // D: Tanggal/Hari/Jam Kegiatan
-      payload.deskripsiKegiatan || "",                     // E: Deskripsi Kegiatan
-      payload.lokasiKegiatan || "",                        // F: Lokasi Kegiatan
-      payload.jumlahHadir || "",                           // G: Jumlah Orang Yang Hadir
-      cleanNumber(payload.nilaiOrangRupiah),               // H: Jumlah Orang (Nilai Rupiah)
-      urlFotoKegiatan || "",                               // I: Dokumentasi/Foto Kegiatan
-      payload.jenisKonsumsi || "",                         // J: Jenis Konsumsi
-      cleanNumber(payload.nilaiKonsumsiRupiah),            // K: Jenis Konsumsi (Nilai Rupiah)
-      urlFotoKonsumsi || "",                               // L: Foto Konsumsi
-      payload.peralatan || "",                             // M: Peralatan Yang Digunakan
-      payload.material || "",                              // N: Material Yang Digunakan
-      cleanNumber(payload.nilaiMaterialRupiah),            // O: Material Yang Digunakan (Nilai Rupiah)
-      urlFotoMaterial || "",                               // P: Foto Material
-      urlVideoKegiatan || "",                              // Q: Video Kegiatan
-      urlDaftarHadir || "",                                // R: Daftar Hadir Kegiatan
-      payload.capaian || "",                               // S: Capaian Dalam Kegiatan
-      payload.kendala || "",                               // T: Kendala Dalam Kegiatan
-      payload.catatanTambahan || ""                        // U: Catatan / Keterangan Tambahan
+      timestampStr,
+      payload.desa || "Kecamatan Waru",
+      payload.bidangKegiatan || "Lingkungan",
+      payload.waktuKegiatan || "",
+      payload.deskripsiKegiatan || "",
+      payload.lokasiKegiatan || "",
+      payload.jumlahHadir || 0,
+      cleanNumber(payload.nilaiOrangRupiah),
+      urlFotoKegiatan || "",
+      payload.jenisKonsumsi || "",
+      cleanNumber(payload.nilaiKonsumsiRupiah),
+      urlFotoKonsumsi || "",
+      payload.peralatan || "",
+      payload.material || "",
+      cleanNumber(payload.nilaiMaterialRupiah),
+      urlFotoMaterial || "",
+      urlVideoKegiatan || "",
+      urlDaftarHadir || "",
+      payload.capaian || "",
+      payload.kendala || "",
+      payload.catatanTambahan || ""
     ];
 
     sheet.appendRow(rowData);
-
-    // Hitung total swadaya untuk info kembali
-    var totalSwadaya = (cleanNumber(payload.nilaiOrangRupiah) || 0) + 
-                       (cleanNumber(payload.nilaiKonsumsiRupiah) || 0) + 
-                       (cleanNumber(payload.nilaiMaterialRupiah) || 0);
 
     return createJsonResponse({
       status: "success",
       message: "Laporan kegiatan gotong royong berhasil disimpan!",
       timestamp: timestampStr,
-      totalSwadaya: totalSwadaya,
       driveLinks: {
         fotoKegiatan: urlFotoKegiatan,
         fotoKonsumsi: urlFotoKonsumsi,
@@ -216,9 +321,6 @@ function doPost(e) {
 
 // ================= HELPER FUNCTIONS =================
 
-/**
- * Mendapatkan referensi Sheet aktif
- */
 function getSheetInstance() {
   var ss;
   if (SPREADSHEET_ID && SPREADSHEET_ID.trim() !== "") {
@@ -228,19 +330,16 @@ function getSheetInstance() {
   }
   
   if (!ss) {
-    throw new Error("Spreadsheet tidak ditemukan. Pastikan SPREADSHEET_ID diisi atau script terhubung ke Google Sheet.");
+    throw new Error("Spreadsheet tidak ditemukan. Pastikan script dibuat di Google Sheets terkait atau isi SPREADSHEET_ID.");
   }
 
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
-    sheet = ss.getSheets()[0]; // Fallback ke sheet pertama jika nama tidak cocok
+    sheet = ss.getSheets()[0];
   }
   return sheet;
 }
 
-/**
- * Mendapatkan atau membuat folder tujuan di Google Drive
- */
 function getTargetFolder(namaDesa) {
   var parentFolder;
   if (ROOT_FOLDER_ID && ROOT_FOLDER_ID.trim() !== "") {
@@ -253,7 +352,6 @@ function getTargetFolder(namaDesa) {
     parentFolder = DriveApp.getRootFolder();
   }
 
-  // Buat sub-folder berdasarkan tahun dan desa agar rapi
   var currentYear = Utilities.formatDate(new Date(), "Asia/Makassar", "yyyy");
   var yearFolder = getOrCreateSubFolder(parentFolder, "Gotong Royong " + currentYear);
   var desaFolder = getOrCreateSubFolder(yearFolder, namaDesa || "Kecamatan Waru");
@@ -269,9 +367,6 @@ function getOrCreateSubFolder(parent, folderName) {
   return parent.createFolder(folderName);
 }
 
-/**
- * Menyimpan file base64 yang dikirim dari form ke Google Drive
- */
 function saveFileToDrive(fileObj, prefix, targetFolder) {
   if (!fileObj || !fileObj.base64) {
     return "";
@@ -279,14 +374,13 @@ function saveFileToDrive(fileObj, prefix, targetFolder) {
 
   try {
     var rawBase64 = fileObj.base64;
-    // Bersihkan prefix data URL misal 'data:image/jpeg;base64,'
     if (rawBase64.indexOf(",") > -1) {
       rawBase64 = rawBase64.split(",")[1];
     }
 
     var decoded = Utilities.base64Decode(rawBase64);
     var mimeType = fileObj.mimeType || "image/jpeg";
-    var extension = getExtensionFromMime(mimeType);
+    var extension = mimeType.indexOf("png") > -1 ? ".png" : (mimeType.indexOf("pdf") > -1 ? ".pdf" : ".jpg");
     
     var timeStamp = Utilities.formatDate(new Date(), "Asia/Makassar", "yyyyMMdd_HHmmss");
     var fileName = prefix + "_" + timeStamp + "_" + Math.floor(Math.random() * 1000) + extension;
@@ -294,9 +388,7 @@ function saveFileToDrive(fileObj, prefix, targetFolder) {
     var blob = Utilities.newBlob(decoded, mimeType, fileName);
     var file = targetFolder.createFile(blob);
 
-    // Berikan izin agar file dapat dilihat melalui link
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
     return file.getUrl();
   } catch (e) {
     Logger.log("Error save file: " + e.toString());
@@ -304,61 +396,13 @@ function saveFileToDrive(fileObj, prefix, targetFolder) {
   }
 }
 
-function getExtensionFromMime(mime) {
-  if (mime.indexOf("png") > -1) return ".png";
-  if (mime.indexOf("jpeg") > -1 || mime.indexOf("jpg") > -1) return ".jpg";
-  if (mime.indexOf("pdf") > -1) return ".pdf";
-  if (mime.indexOf("mp4") > -1) return ".mp4";
-  return ".bin";
-}
-
-/**
- * Memastikan kolom header di Sheet sudah tersedia
- */
-function ensureHeaders(sheet) {
-  if (sheet.getLastRow() === 0) {
-    var defaultHeaders = [
-      "Timestamp",
-      "Kecamatan/Kelurahan/Desa",
-      "Bidang Kegiatan",
-      "Tanggal/Hari/Jam Kegiatan",
-      "Deskripsi Kegiatan",
-      "Lokasi Kegiatan",
-      "Jumlah Orang Yang Hadir",
-      "Jumlah Orang (Nilai Rupiah)",
-      "Dokumentasi/Foto Kegiatan",
-      "Jenis Konsumsi",
-      "Jenis Konsumsi (Nilai Rupiah)",
-      "Foto Konsumsi",
-      "Peralatan Yang Digunakan",
-      "Material Yang Digunakan",
-      "Material Yang Digunakan (Nilai Rupiah)",
-      "Foto Material",
-      "Video Kegiatan",
-      "Daftar Hadir Kegiatan",
-      "Capaian Dalam Kegiatan",
-      "Kendala Dalam Kegiatan",
-      "Catatan / Keterangan Tambahan"
-    ];
-    sheet.appendRow(defaultHeaders);
-    sheet.getRange(1, 1, 1, defaultHeaders.length).setFontWeight("bold").setBackground("#e6f4ea");
-  }
-}
-
 function cleanNumber(val) {
-  if (val === null || val === undefined || val === "") return 0;
+  if (!val) return 0;
   if (typeof val === "number") return val;
   var str = String(val).replace(/[^0-9]/g, "");
-  return str === "" ? 0 : parseInt(str, 10);
+  return str ? parseInt(str, 10) : 0;
 }
 
-function formatDateIndo(d) {
-  return Utilities.formatDate(d, "Asia/Makassar", "dd/MM/yyyy HH:mm");
-}
-
-/**
- * Format JSON Response dengan header CORS lengkap
- */
 function createJsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
