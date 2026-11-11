@@ -23,7 +23,13 @@ export function getConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (!raw) return DEFAULT_CONFIG;
-    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_CONFIG,
+      ...parsed,
+      // Pastikan jika di localStorage nilainya kosong, tetap gunakan URL resmi Google Apps Script
+      scriptUrl: (parsed.scriptUrl && parsed.scriptUrl.trim()) ? parsed.scriptUrl : DEFAULT_CONFIG.scriptUrl,
+    };
   } catch (e) {
     return DEFAULT_CONFIG;
   }

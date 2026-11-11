@@ -20,13 +20,14 @@ export default function App() {
   const [printData, setPrintData] = useState(null); // { report, reports, isBatch }
 
   // Check connection status
-  const config = getConfig();
+  const [config, setConfig] = useState(getConfig);
   const isConnected = Boolean(config.scriptUrl);
 
   // Load data on initial mount
   const loadData = async () => {
     setIsLoading(true);
     try {
+      setConfig(getConfig());
       const res = await fetchReports();
       if (res.data && res.data.length > 0) {
         setReports(res.data);
@@ -120,7 +121,8 @@ export default function App() {
       {isSettingsOpen && (
         <PengaturanModal
           onClose={() => setIsSettingsOpen(false)}
-          onSaved={() => {
+          onSaved={(newCfg) => {
+            setConfig(newCfg || getConfig());
             loadData();
           }}
         />
