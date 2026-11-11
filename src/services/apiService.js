@@ -7,7 +7,7 @@ const STORAGE_KEY_REPORTS = "sigap_gotong_royong_reports";
 const STORAGE_KEY_CONFIG = "sigap_gotong_royong_config";
 
 export const DEFAULT_CONFIG = {
-  scriptUrl: "", // URL Google Apps Script Web App
+  scriptUrl: "https://script.google.com/macros/s/AKfycbxz1JenYj9nnrXNMeNPhXRajGmkcRmgLMSQpyHOiZT023R4FdmeNln7jao0WGry5BDlrw/exec", // URL Google Apps Script Web App Resmi
   sheetId: "",
   folderId: "",
   adminEmail: "waruppusigap@gmail.com",
