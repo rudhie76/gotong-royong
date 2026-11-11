@@ -37,7 +37,7 @@ export default function Header({
             <div>
               <div className="flex items-center space-x-2">
                 <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                  {activeTab === 'form' ? 'Formulir Pelaporan Gotong Royong' : 'Dashboard Rekapitulasi Swadaya'}
+                  SIP-Gotong Royong
                 </h1>
                 <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Kecamatan Waru

@@ -246,29 +246,14 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6">
       
-      {/* Banner Intro Simetris */}
-      <div className="mb-6 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                <Sparkles className="w-3 h-3 text-emerald-600" />
-                <span>Formulir Entri Resmi</span>
-              </span>
-              <span className="text-xs text-slate-500 font-medium">• Kecamatan Waru, Penajam Paser Utara</span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              Pelaporan Kegiatan Gotong Royong
-            </h2>
-            <p className="text-xs text-slate-600">
-              Input data swadaya masyarakat, dokumentasi kegiatan, dan rincian partisipasi warga se-Kecamatan Waru.
-            </p>
-          </div>
-          <div className="bg-emerald-50/70 px-3.5 py-2 rounded-xl border border-emerald-200 text-right shrink-0">
-            <span className="text-emerald-700 block text-[10px] font-bold uppercase">Status Sistem:</span>
-            <span className="font-bold text-xs text-emerald-900">Aktif & Siap Menerima Laporan</span>
-          </div>
-        </div>
+      {/* Banner Intro Bersih (Tanpa Judul Ganda) */}
+      <div className="mb-6 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+        <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+          Formulir Entri Laporan Gotong Royong
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Lengkapi rincian kegiatan, estimasi nilai swadaya warga, dan berkas bukti dokumentasi lapangan.
+        </p>
       </div>
 
       {/* Success Dialog Modal */}

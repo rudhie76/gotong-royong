@@ -176,19 +176,14 @@ export default function Dashboard({
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 space-y-6">
       
-      {/* Top Header & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+      {/* Top Header & Quick Actions (Tanpa Judul Ganda) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <div className="flex items-center space-x-2">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-              Dashboard & Rekapitulasi Data
-            </h2>
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-              Kecamatan Waru
-            </span>
-          </div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+            Rekapitulasi Partisipasi & Data Swadaya Masyarakat
+          </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Rekapitulasi partisipasi masyarakat & data swadaya Kecamatan Waru, PPU
+            Akumulasi data kegiatan dan nilai ekonomi gotong royong warga se-Kecamatan Waru
           </p>
         </div>
 
