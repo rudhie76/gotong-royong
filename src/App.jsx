@@ -10,7 +10,7 @@ import { SAMPLE_REPORTS } from './constants';
 import { fetchReports, getConfig } from './services/apiService';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('form'); // 'form' | 'dashboard'
+  const [activeTab, setActiveTab] = useState('dashboard'); // Default menu utama adalah Dashboard
   const [reports, setReports] = useState([]);
   const [dataSource, setDataSource] = useState('local_storage'); // 'google_sheet' | 'local_storage'
   const [isLoading, setIsLoading] = useState(false);
@@ -121,6 +121,7 @@ export default function App() {
               onSelectReport={(r) => setSelectedReport(r)}
               onPrintReport={handlePrintSingle}
               onPrintAll={handlePrintAll}
+              onNewReport={() => setActiveTab('form')}
               dataSource={dataSource}
               isLoading={isLoading}
             />

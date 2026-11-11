@@ -19,7 +19,8 @@ import {
   FileText,
   ChevronRight,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  PlusCircle
 } from 'lucide-react';
 import { WILAYAH_WARU, BIDANG_KEGIATAN } from '../constants';
 import { formatRupiah } from '../services/apiService';
@@ -30,7 +31,7 @@ export default function Dashboard({
   onSelectReport, 
   onPrintReport, 
   onPrintAll, 
-  dataSource, 
+  onNewReport,
   isLoading 
 }) {
   // Filters State
@@ -179,23 +180,30 @@ export default function Dashboard({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">
               Dashboard & Rekapitulasi Data
             </h2>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-              dataSource === 'google_sheet' 
-                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                : 'bg-amber-100 text-amber-800 border border-amber-300'
-            }`}>
-              {dataSource === 'google_sheet' ? '● Live Google Sheets' : '● Data Lokal'}
+            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+              Kecamatan Waru
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-0.5">
             Rekapitulasi partisipasi masyarakat & data swadaya Kecamatan Waru, PPU
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onNewReport && (
+            <button
+              onClick={onNewReport}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-xs"
+              title="Buat Laporan Gotong Royong Baru"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Input Laporan</span>
+            </button>
+          )}
+
           <button
             onClick={onRefresh}
             disabled={isLoading}
@@ -208,10 +216,10 @@ export default function Dashboard({
 
           <button
             onClick={exportToCSV}
-            className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition-colors cursor-pointer border border-emerald-200"
+            className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200"
             title="Ekspor seluruh baris ke Excel/CSV"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            <Download className="w-3.5 h-3.5 text-slate-600" />
             <span>Export CSV</span>
           </button>
 
@@ -221,7 +229,7 @@ export default function Dashboard({
             title="Cetak Berita Acara Rekapitulasi Resmi Kecamatan"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Cetak Rekap Resmi</span>
+            <span>Cetak Rekap</span>
           </button>
         </div>
       </div>

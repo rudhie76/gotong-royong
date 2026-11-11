@@ -24,6 +24,17 @@ export default function Sidebar({
 }) {
   const menuItems = [
     {
+      id: 'dashboard',
+      label: 'Dashboard & Rekap',
+      sublabel: 'Statistik & rekapitulasi data',
+      icon: LayoutDashboard,
+      onClick: () => {
+        setActiveTab('dashboard');
+        setIsMobileOpen(false);
+      },
+      badge: reportCount > 0 ? reportCount : null
+    },
+    {
       id: 'form',
       label: 'Input Laporan',
       sublabel: 'Entri kegiatan baru',
@@ -33,17 +44,6 @@ export default function Sidebar({
         setIsMobileOpen(false);
       },
       badge: null
-    },
-    {
-      id: 'dashboard',
-      label: 'Dashboard & Rekap',
-      sublabel: 'Data & nilai swadaya',
-      icon: LayoutDashboard,
-      onClick: () => {
-        setActiveTab('dashboard');
-        setIsMobileOpen(false);
-      },
-      badge: reportCount > 0 ? reportCount : null
     },
     {
       id: 'print',
