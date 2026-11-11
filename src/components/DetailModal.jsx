@@ -14,9 +14,65 @@ import {
   Coins,
   Building2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Camera
 } from 'lucide-react';
 import { formatRupiah } from '../services/apiService';
+
+// Helper parse string multiple URLs
+const parseUrls = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean);
+  return String(val)
+    .split(/[\n\r,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+};
+
+function PhotoGalleryCard({ title, urls, emptyText = "Tidak ada foto" }) {
+  const list = parseUrls(urls);
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+      <div className="px-3 py-1.5 flex items-center justify-between border-b border-slate-200 bg-slate-100">
+        <span className="text-[11px] font-bold text-slate-800">{title}</span>
+        {list.length > 0 && (
+          <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-md">
+            {list.length} foto
+          </span>
+        )}
+      </div>
+      {list.length > 0 ? (
+        <div className={`p-2.5 grid gap-2 ${list.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {list.map((url, i) => (
+            <div key={i} className="relative group rounded-lg overflow-hidden border border-slate-200 bg-black/5 aspect-4/3">
+              <img 
+                src={url} 
+                alt={`${title} ${i + 1}`} 
+                className="w-full h-full object-cover" 
+              />
+              <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded font-bold pointer-events-none">
+                #{i + 1}
+              </span>
+              <a 
+                href={url} 
+                target="_blank" 
+                rel="noreferrer"
+                className="absolute inset-0 bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[11px] font-semibold space-x-1"
+              >
+                <span>Buka Gambar</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="h-24 flex items-center justify-center text-xs text-slate-400">
+          {emptyText}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DetailModal({ report, onClose, onPrint }) {
   if (!report) return null;
@@ -183,152 +239,64 @@ export default function DetailModal({ report, onClose, onPrint }) {
             </div>
           )}
 
-          {/* Galeri Bukti & Dokumentasi Foto */}
+          {/* Galeri Bukti & Dokumentasi Multi-Foto */}
           <div>
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-              Dokumentasi Foto & Berkas Tersimpan
+              Dokumentasi Foto & Berkas Lampiran Tersimpan
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               
-              {/* Foto Utama Kegiatan */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                <span className="block px-3 py-1.5 text-[11px] font-bold bg-slate-100 text-slate-700 border-b border-slate-200">
-                  Foto Utama Kegiatan
-                </span>
-                {report.fotoKegiatanUrl ? (
-                  <div className="relative group">
-                    <img 
-                      src={report.fotoKegiatanUrl} 
-                      alt="Kegiatan" 
-                      className="w-full h-36 object-cover" 
-                    />
-                    <a 
-                      href={report.fotoKegiatanUrl} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold space-x-1"
-                    >
-                      <span>Buka Gambar Penuh</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="h-28 flex items-center justify-center text-xs text-slate-400">
-                    Tidak ada foto
-                  </div>
-                )}
-              </div>
-
-              {/* Foto Konsumsi */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                <span className="block px-3 py-1.5 text-[11px] font-bold bg-slate-100 text-slate-700 border-b border-slate-200">
-                  Foto Konsumsi
-                </span>
-                {report.fotoKonsumsiUrl ? (
-                  <div className="relative group">
-                    <img 
-                      src={report.fotoKonsumsiUrl} 
-                      alt="Konsumsi" 
-                      className="w-full h-36 object-cover" 
-                    />
-                    <a 
-                      href={report.fotoKonsumsiUrl} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold space-x-1"
-                    >
-                      <span>Buka Gambar Penuh</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="h-28 flex items-center justify-center text-xs text-slate-400">
-                    Tidak ada foto
-                  </div>
-                )}
-              </div>
-
-              {/* Foto Material */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                <span className="block px-3 py-1.5 text-[11px] font-bold bg-slate-100 text-slate-700 border-b border-slate-200">
-                  Foto Material / Bukti Nota
-                </span>
-                {report.fotoMaterialUrl ? (
-                  <div className="relative group">
-                    <img 
-                      src={report.fotoMaterialUrl} 
-                      alt="Material" 
-                      className="w-full h-36 object-cover" 
-                    />
-                    <a 
-                      href={report.fotoMaterialUrl} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold space-x-1"
-                    >
-                      <span>Buka Gambar Penuh</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="h-28 flex items-center justify-center text-xs text-slate-400">
-                    Tidak ada foto
-                  </div>
-                )}
-              </div>
+              {/* Foto Utama Kegiatan (Bisa 2 atau lebih) */}
+              <PhotoGalleryCard
+                title="Foto Dokumentasi Kegiatan Lapangan (Min. 2 Foto)"
+                urls={report.fotoKegiatanUrl}
+                emptyText="Belum ada foto kegiatan"
+              />
 
               {/* Lembar Presensi / Daftar Hadir */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                <span className="block px-3 py-1.5 text-[11px] font-bold bg-slate-100 text-slate-700 border-b border-slate-200">
-                  Foto / Scan Daftar Hadir
-                </span>
-                {report.daftarHadirUrl ? (
-                  <div className="relative group">
-                    <img 
-                      src={report.daftarHadirUrl} 
-                      alt="Daftar Hadir" 
-                      className="w-full h-36 object-cover" 
-                    />
-                    <a 
-                      href={report.daftarHadirUrl} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="absolute inset-0 bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold space-x-1"
-                    >
-                      <span>Buka Berkas Penuh</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="h-28 flex items-center justify-center text-xs text-slate-400">
-                    Tidak ada berkas
-                  </div>
-                )}
-              </div>
+              <PhotoGalleryCard
+                title="Foto / Scan Lembar Daftar Hadir"
+                urls={report.daftarHadirUrl}
+                emptyText="Belum ada berkas daftar hadir"
+              />
 
-              {/* Video Kegiatan */}
-              {report.videoUrl && (
-                <div className="sm:col-span-2 border border-slate-200 rounded-xl p-3 bg-red-50/50 flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-xs">
-                    <Video className="w-5 h-5 text-red-600" />
-                    <div>
-                      <span className="font-bold text-slate-800 block">Link Video Kegiatan</span>
-                      <span className="text-[11px] text-slate-500 truncate max-w-xs block">{report.videoUrl}</span>
-                    </div>
-                  </div>
-                  <a
-                    href={report.videoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg flex items-center space-x-1"
-                  >
-                    <span>Tonton Video</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              )}
+              {/* Foto Konsumsi */}
+              <PhotoGalleryCard
+                title="Foto Konsumsi Swadaya Warga"
+                urls={report.fotoKonsumsiUrl}
+                emptyText="Belum ada foto konsumsi"
+              />
+
+              {/* Foto Material */}
+              <PhotoGalleryCard
+                title="Foto Material / Bukti Nota Pembelian"
+                urls={report.fotoMaterialUrl}
+                emptyText="Belum ada foto material"
+              />
 
             </div>
+
+            {/* Video Kegiatan */}
+            {report.videoUrl && (
+              <div className="mt-3.5 border border-slate-200 rounded-xl p-3 bg-red-50/50 flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-xs">
+                  <Video className="w-5 h-5 text-red-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-800 block">Link Video Dokumentasi</span>
+                    <span className="text-[11px] text-slate-500 truncate max-w-xs block">{report.videoUrl}</span>
+                  </div>
+                </div>
+                <a
+                  href={report.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg flex items-center space-x-1"
+                >
+                  <span>Tonton Video</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
           </div>
 
         </div>

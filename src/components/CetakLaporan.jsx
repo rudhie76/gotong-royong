@@ -2,6 +2,16 @@ import React from 'react';
 import { Printer, ArrowLeft, Download } from 'lucide-react';
 import { formatRupiah } from '../services/apiService';
 
+// Helper parse string multiple URLs
+const parseUrls = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean);
+  return String(val)
+    .split(/[\n\r,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+};
+
 export default function CetakLaporan({ report, reports, isBatch, onClose }) {
   const handlePrint = () => {
     window.print();
@@ -183,34 +193,59 @@ export default function CetakLaporan({ report, reports, isBatch, onClose }) {
               </table>
             </div>
 
-            {/* DOKUMENTASI FOTO DALAM CETAKAN */}
+            {/* DOKUMENTASI FOTO DALAM CETAKAN (MENDUKUNG MULTI-FOTO) */}
             <div className="print-break-inside-avoid pt-2">
               <h4 className="text-xs font-bold uppercase text-slate-800 mb-2">
-                Lampiran Dokumentasi Kegiatan Lapangan
+                Lampiran Dokumentasi Kegiatan Lapangan & Presensi
               </h4>
               <div className="grid grid-cols-2 gap-3">
-                {report.fotoKegiatanUrl && (
-                  <div className="border border-slate-300 p-1.5 rounded text-center">
-                    <img src={report.fotoKegiatanUrl} alt="Kegiatan" className="w-full h-36 object-cover rounded" />
-                    <span className="text-[10px] text-slate-600 mt-1 block">Foto 1: Dokumentasi Pelaksanaan Gotong Royong</span>
+                {/* Foto Kegiatan (Bisa 2 atau lebih) */}
+                {parseUrls(report.fotoKegiatanUrl).map((url, idx) => (
+                  <div key={`keg-${idx}`} className="border border-slate-300 p-1.5 rounded text-center bg-slate-50">
+                    <img src={url} alt={`Kegiatan ${idx + 1}`} className="w-full h-36 object-cover rounded" />
+                    <span className="text-[10px] font-semibold text-slate-700 mt-1 block">
+                      Foto Kegiatan #{idx + 1}: Dokumentasi Lapangan
+                    </span>
                   </div>
-                )}
-                {report.fotoKonsumsiUrl && (
-                  <div className="border border-slate-300 p-1.5 rounded text-center">
-                    <img src={report.fotoKonsumsiUrl} alt="Konsumsi" className="w-full h-36 object-cover rounded" />
-                    <span className="text-[10px] text-slate-600 mt-1 block">Foto 2: Konsumsi Swadaya Warga</span>
+                ))}
+
+                {/* Foto Konsumsi */}
+                {parseUrls(report.fotoKonsumsiUrl).map((url, idx) => (
+                  <div key={`kon-${idx}`} className="border border-slate-300 p-1.5 rounded text-center bg-slate-50">
+                    <img src={url} alt={`Konsumsi ${idx + 1}`} className="w-full h-36 object-cover rounded" />
+                    <span className="text-[10px] font-semibold text-slate-700 mt-1 block">
+                      Foto Konsumsi #{idx + 1}: Swadaya Warga
+                    </span>
                   </div>
-                )}
-                {report.fotoMaterialUrl && (
-                  <div className="border border-slate-300 p-1.5 rounded text-center">
-                    <img src={report.fotoMaterialUrl} alt="Material" className="w-full h-36 object-cover rounded" />
-                    <span className="text-[10px] text-slate-600 mt-1 block">Foto 3: Material / Bukti Bahan Digunakan</span>
+                ))}
+
+                {/* Foto Material */}
+                {parseUrls(report.fotoMaterialUrl).map((url, idx) => (
+                  <div key={`mat-${idx}`} className="border border-slate-300 p-1.5 rounded text-center bg-slate-50">
+                    <img src={url} alt={`Material ${idx + 1}`} className="w-full h-36 object-cover rounded" />
+                    <span className="text-[10px] font-semibold text-slate-700 mt-1 block">
+                      Foto Material #{idx + 1}: Bukti Penggunaan / Nota
+                    </span>
                   </div>
-                )}
-                {report.daftarHadirUrl && (
-                  <div className="border border-slate-300 p-1.5 rounded text-center">
-                    <img src={report.daftarHadirUrl} alt="Daftar Hadir" className="w-full h-36 object-cover rounded" />
-                    <span className="text-[10px] text-slate-600 mt-1 block">Foto 4: Bukti Presensi / Daftar Hadir Peserta</span>
+                ))}
+
+                {/* Foto Daftar Hadir */}
+                {parseUrls(report.daftarHadirUrl).map((url, idx) => (
+                  <div key={`hadir-${idx}`} className="border border-slate-300 p-1.5 rounded text-center bg-slate-50">
+                    <img src={url} alt={`Daftar Hadir ${idx + 1}`} className="w-full h-36 object-cover rounded" />
+                    <span className="text-[10px] font-semibold text-slate-700 mt-1 block">
+                      Lampiran Presensi #{idx + 1}: Daftar Hadir Warga
+                    </span>
+                  </div>
+                ))}
+
+                {/* Placeholder jika tidak ada foto sama sekali */}
+                {parseUrls(report.fotoKegiatanUrl).length === 0 &&
+                 parseUrls(report.fotoKonsumsiUrl).length === 0 &&
+                 parseUrls(report.fotoMaterialUrl).length === 0 &&
+                 parseUrls(report.daftarHadirUrl).length === 0 && (
+                  <div className="col-span-2 py-4 text-center text-xs text-slate-400 italic border border-dashed border-slate-300 rounded">
+                    Tidak ada lampiran foto dokumentasi fisik
                   </div>
                 )}
               </div>

@@ -138,7 +138,7 @@ export default function App() {
               Pemerintah Kecamatan Waru • Kabupaten Penajam Paser Utara, Kalimantan Timur
             </p>
             <p className="text-[10px] text-slate-400">
-              Penyimpanan Terintegrasi Google Sheets & Google Drive (waruppusigap@gmail.com)
+              Sistem Informasi Pelaporan Gotong Royong Terpadu • Aman, Tertib & Akuntabel
             </p>
           </div>
         </footer>

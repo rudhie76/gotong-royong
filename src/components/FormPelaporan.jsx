@@ -20,7 +20,8 @@ import {
   Calculator,
   RefreshCw,
   Image as ImageIcon,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { 
   WILAYAH_WARU, 
@@ -63,20 +64,20 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
     catatanTambahan: '',
   });
 
-  // State Files Uploaded
+  // State Files Uploaded (Mendukung Multi-Foto / Minimal 2 Foto)
   const [files, setFiles] = useState({
-    fotoKegiatan: null,
-    fotoKonsumsi: null,
-    fotoMaterial: null,
-    daftarHadir: null,
+    fotoKegiatan: [],
+    fotoKonsumsi: [],
+    fotoMaterial: [],
+    daftarHadir: [],
   });
 
-  // State Previews
+  // State Previews (Array of URL strings)
   const [previews, setPreviews] = useState({
-    fotoKegiatan: null,
-    fotoKonsumsi: null,
-    fotoMaterial: null,
-    daftarHadir: null,
+    fotoKegiatan: [],
+    fotoKonsumsi: [],
+    fotoMaterial: [],
+    daftarHadir: [],
   });
 
   // Submission Status
@@ -123,24 +124,42 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
     });
   };
 
-  // Handle File Selection
-  const handleFileChange = async (key, file) => {
-    if (!file) return;
+  // Handle Multi-File Selection & Compression
+  const handleAddFiles = async (key, fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    const incomingFiles = Array.from(fileList);
 
-    const localUrl = URL.createObjectURL(file);
-    setPreviews((prev) => ({ ...prev, [key]: localUrl }));
+    // Buat URL preview lokal langsung untuk UI instan
+    const newPreviewUrls = incomingFiles.map((file) => URL.createObjectURL(file));
+    setPreviews((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] || []), ...newPreviewUrls],
+    }));
 
+    // Kompresi gambar di latar belakang
     try {
-      const encoded = await compressAndEncodeImage(file);
-      setFiles((prev) => ({ ...prev, [key]: encoded }));
+      const compressionPromises = incomingFiles.map((f) => compressAndEncodeImage(f));
+      const compressedFiles = await Promise.all(compressionPromises);
+
+      setFiles((prev) => ({
+        ...prev,
+        [key]: [...(prev[key] || []), ...compressedFiles],
+      }));
     } catch (e) {
-      console.error("Gagal membaca berkas:", e);
+      console.error("Gagal memproses berkas:", e);
     }
   };
 
-  const handleRemoveFile = (key) => {
-    setPreviews((prev) => ({ ...prev, [key]: null }));
-    setFiles((prev) => ({ ...prev, [key]: null }));
+  // Hapus single foto dari array
+  const handleRemoveSingleFile = (key, index) => {
+    setPreviews((prev) => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((_, i) => i !== index),
+    }));
+    setFiles((prev) => ({
+      ...prev,
+      [key]: (prev[key] || []).filter((_, i) => i !== index),
+    }));
   };
 
   // Format Tanggal Indonesia WITA
@@ -169,8 +188,14 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
       return;
     }
 
+    // Validasi Minimal 2 Foto untuk Foto Kegiatan Utama
+    if (!files.fotoKegiatan || files.fotoKegiatan.length < 2) {
+      alert("Mohon unggah minimal 2 foto untuk dokumentasi kegiatan gotong royong (saat ini baru " + (files.fotoKegiatan?.length || 0) + " foto).");
+      return;
+    }
+
     setIsSubmitting(true);
-    setSubmitProgress("Menyiapkan berkas dan enkripsi gambar...");
+    setSubmitProgress("Menyiapkan dan mengompres berkas foto...");
 
     const finalDesa = formData.desa === "Lainnya" ? formData.desaCustom : formData.desa;
     const waktuFinal = getFormattedWaktu();
@@ -183,16 +208,16 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
       lokasiKegiatan: formData.lokasiKegiatan,
       jumlahHadir: Number(formData.jumlahHadir) || 0,
       nilaiOrangRupiah: Number(formData.nilaiOrangRupiah) || 0,
-      fotoKegiatan: files.fotoKegiatan,
+      fotoKegiatan: files.fotoKegiatan, // Array of files (>= 2)
       jenisKonsumsi: formData.jenisKonsumsi,
       nilaiKonsumsiRupiah: Number(formData.nilaiKonsumsiRupiah) || 0,
-      fotoKonsumsi: files.fotoKonsumsi,
+      fotoKonsumsi: files.fotoKonsumsi, // Array of files
       peralatan: formData.peralatan,
       material: formData.material,
       nilaiMaterialRupiah: Number(formData.nilaiMaterialRupiah) || 0,
-      fotoMaterial: files.fotoMaterial,
+      fotoMaterial: files.fotoMaterial, // Array of files
       videoUrl: formData.videoUrl,
-      daftarHadir: files.daftarHadir,
+      daftarHadir: files.daftarHadir, // Array of files
       capaian: formData.capaian,
       kendala: formData.kendala,
       catatanTambahan: formData.catatanTambahan,
@@ -221,16 +246,16 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
   const resetForm = () => {
     setSubmitSuccess(null);
     setPreviews({
-      fotoKegiatan: null,
-      fotoKonsumsi: null,
-      fotoMaterial: null,
-      daftarHadir: null,
+      fotoKegiatan: [],
+      fotoKonsumsi: [],
+      fotoMaterial: [],
+      daftarHadir: [],
     });
     setFiles({
-      fotoKegiatan: null,
-      fotoKonsumsi: null,
-      fotoMaterial: null,
-      daftarHadir: null,
+      fotoKegiatan: [],
+      fotoKonsumsi: [],
+      fotoMaterial: [],
+      daftarHadir: [],
     });
     setFormData((prev) => ({
       ...prev,
@@ -252,7 +277,7 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
           Formulir Entri Laporan Gotong Royong
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Lengkapi rincian kegiatan, estimasi nilai swadaya warga, dan berkas bukti dokumentasi lapangan.
+          Lengkapi rincian kegiatan, estimasi nilai swadaya warga, dan berkas dokumentasi (minimal 2 foto kegiatan).
         </p>
       </div>
 
@@ -496,7 +521,7 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
               <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center space-x-2">
                 <Coffee className="w-4 h-4 text-emerald-600" />
                 <h3 className="font-bold text-slate-800 text-sm">
-                  3. Konsumsi Swadaya & Bukti Foto
+                  3. Konsumsi Swadaya & Foto
                 </h3>
               </div>
               <div className="p-4 space-y-3">
@@ -534,37 +559,42 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
                   </div>
                 </div>
 
-                {/* Upload Foto Konsumsi */}
+                {/* Upload Multi-Foto Konsumsi */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Foto Konsumsi Swadaya
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <label className="flex-1 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl p-2.5 flex items-center justify-center space-x-2 cursor-pointer transition-colors">
-                      <Camera className="w-4 h-4 text-slate-500" />
-                      <span className="text-xs text-slate-600 font-medium">
-                        {previews.fotoKonsumsi ? "Ganti Foto Konsumsi" : "Pilih / Ambil Foto Konsumsi"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={(e) => handleFileChange('fotoKonsumsi', e.target.files[0])}
-                      />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Foto Konsumsi Swadaya
                     </label>
-                    {previews.fotoKonsumsi && (
-                      <div className="relative group w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shrink-0">
-                        <img src={previews.fotoKonsumsi} alt="Konsumsi" className="w-full h-full object-cover" />
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      ({previews.fotoKonsumsi.length} foto terpilih)
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5 items-center">
+                    {previews.fotoKonsumsi.map((url, idx) => (
+                      <div key={idx} className="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-300 shadow-2xs">
+                        <img src={url} alt={`Konsumsi ${idx + 1}`} className="w-full h-full object-cover" />
                         <button
                           type="button"
-                          onClick={() => handleRemoveFile('fotoKonsumsi')}
-                          className="absolute inset-0 bg-red-600/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveSingleFile('fotoKonsumsi', idx)}
+                          className="absolute top-1 right-1 p-0.5 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
-                    )}
+                    ))}
+
+                    <label className="h-14 px-3 border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer transition-colors text-slate-600">
+                      <Camera className="w-4 h-4 text-emerald-600" />
+                      <span className="text-[11px] font-semibold">+ Tambah Foto</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAddFiles('fotoKonsumsi', e.target.files)}
+                      />
+                    </label>
                   </div>
                 </div>
 
@@ -645,117 +675,161 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
                   </div>
                 </div>
 
-                {/* Upload Foto Material */}
+                {/* Upload Multi-Foto Material */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Foto Material / Nota Pembelian
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <label className="flex-1 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl p-2.5 flex items-center justify-center space-x-2 cursor-pointer transition-colors">
-                      <Camera className="w-4 h-4 text-slate-500" />
-                      <span className="text-xs text-slate-600 font-medium">
-                        {previews.fotoMaterial ? "Ganti Foto Material" : "Upload Foto Material / Nota"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={(e) => handleFileChange('fotoMaterial', e.target.files[0])}
-                      />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Foto Material / Nota Pembelian
                     </label>
-                    {previews.fotoMaterial && (
-                      <div className="relative group w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shrink-0">
-                        <img src={previews.fotoMaterial} alt="Material" className="w-full h-full object-cover" />
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      ({previews.fotoMaterial.length} foto terpilih)
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5 items-center">
+                    {previews.fotoMaterial.map((url, idx) => (
+                      <div key={idx} className="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-300 shadow-2xs">
+                        <img src={url} alt={`Material ${idx + 1}`} className="w-full h-full object-cover" />
                         <button
                           type="button"
-                          onClick={() => handleRemoveFile('fotoMaterial')}
-                          className="absolute inset-0 bg-red-600/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemoveSingleFile('fotoMaterial', idx)}
+                          className="absolute top-1 right-1 p-0.5 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
-                    )}
+                    ))}
+
+                    <label className="h-14 px-3 border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer transition-colors text-slate-600">
+                      <Camera className="w-4 h-4 text-emerald-600" />
+                      <span className="text-[11px] font-semibold">+ Tambah Foto / Nota</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAddFiles('fotoMaterial', e.target.files)}
+                      />
+                    </label>
                   </div>
                 </div>
 
               </div>
             </div>
 
-            {/* SECTION 5: DOKUMENTASI UTAMA, VIDEO & DAFTAR HADIR */}
+            {/* SECTION 5: DOKUMENTASI UTAMA (MINIMAL 2 FOTO), VIDEO & DAFTAR HADIR */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center space-x-2">
-                <Camera className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-bold text-slate-800 text-sm">
-                  5. Foto Utama, Video & Lembar Presensi
-                </h3>
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Camera className="w-4 h-4 text-emerald-600" />
+                  <h3 className="font-bold text-slate-800 text-sm">
+                    5. Dokumentasi Foto (Min. 2 Foto), Video & Presensi
+                  </h3>
+                </div>
               </div>
-              <div className="p-4 space-y-3.5">
+              <div className="p-4 space-y-4">
                 
-                {/* 2 Kolom upload: Foto Utama & Daftar Hadir */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  
-                  {/* Foto Utama */}
-                  <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Foto Utama Kegiatan <span className="text-red-500">*</span>
-                    </label>
-                    {previews.fotoKegiatan ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-300 group h-24">
-                        <img src={previews.fotoKegiatan} alt="Foto" className="w-full h-full object-cover" />
+                {/* UPLOAD FOTO KEGIATAN UTAMA (MINIMAL 2 FOTO BISA LEBIH) */}
+                <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Foto Dokumentasi Kegiatan <span className="text-red-500">*</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Wajib unggah minimal 2 foto kegiatan di lapangan (bisa 2, 3, 4 atau lebih).
+                      </span>
+                    </div>
+
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      previews.fotoKegiatan.length >= 2 
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}>
+                      {previews.fotoKegiatan.length >= 2 
+                        ? `✓ ${previews.fotoKegiatan.length} Foto Siap` 
+                        : `Kurang ${2 - previews.fotoKegiatan.length} Foto (Min 2)`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 items-center">
+                    {previews.fotoKegiatan.map((url, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-300 shadow-2xs">
+                        <img src={url} alt={`Dokumentasi ${idx + 1}`} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded font-bold">
+                          Foto {idx + 1}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => handleRemoveFile('fotoKegiatan')}
-                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md text-xs shadow-xs"
+                          onClick={() => handleRemoveSingleFile('fotoKegiatan', idx)}
+                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <label className="aspect-square border-2 border-dashed border-emerald-400 bg-emerald-50/50 hover:bg-emerald-100/60 rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors p-2">
+                      <Camera className="w-5 h-5 text-emerald-600 mb-1" />
+                      <span className="text-[11px] font-bold text-emerald-900 leading-tight">
+                        + Tambah Foto
+                      </span>
+                      <span className="text-[9px] text-slate-400 mt-0.5">
+                        Pilih / Ambil
+                      </span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAddFiles('fotoKegiatan', e.target.files)}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* UPLOAD FOTO / SCAN DAFTAR HADIR (BISA LEBIH DARI 1 HALAMAN) */}
+                <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Foto / Scan Lembar Daftar Hadir
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Unggah foto presensi tanda tangan peserta (bisa 1 halaman atau lebih).
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      ({previews.daftarHadir.length} berkas)
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5 items-center">
+                    {previews.daftarHadir.map((url, idx) => (
+                      <div key={idx} className="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-300 shadow-2xs">
+                        <img src={url} alt={`Daftar Hadir ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSingleFile('daftarHadir', idx)}
+                          className="absolute top-1 right-1 p-0.5 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="w-3 h-3" />
                         </button>
                       </div>
-                    ) : (
-                      <label className="border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50 rounded-xl p-3 flex flex-col items-center justify-center text-center cursor-pointer h-24 transition-colors">
-                        <Camera className="w-5 h-5 text-emerald-600 mb-1" />
-                        <span className="text-[11px] font-bold text-emerald-900">Ambil / Pilih Foto</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(e) => handleFileChange('fotoKegiatan', e.target.files[0])}
-                        />
-                      </label>
-                    )}
-                  </div>
+                    ))}
 
-                  {/* Daftar Hadir */}
-                  <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Foto / Scan Presensi Hadir
+                    <label className="h-14 px-3 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer transition-colors text-slate-600">
+                      <FileCheck className="w-4 h-4 text-emerald-600" />
+                      <span className="text-[11px] font-semibold">+ Tambah Lembar Presensi</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={(e) => handleAddFiles('daftarHadir', e.target.files)}
+                      />
                     </label>
-                    {previews.daftarHadir ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-300 group h-24">
-                        <img src={previews.daftarHadir} alt="Hadir" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile('daftarHadir')}
-                          className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md text-xs shadow-xs"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl p-3 flex flex-col items-center justify-center text-center cursor-pointer h-24 transition-colors">
-                        <FileCheck className="w-5 h-5 text-slate-500 mb-1" />
-                        <span className="text-[11px] font-semibold text-slate-700">Foto Daftar Hadir</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={(e) => handleFileChange('daftarHadir', e.target.files[0])}
-                        />
-                      </label>
-                    )}
                   </div>
-
                 </div>
 
                 {/* Video URL */}

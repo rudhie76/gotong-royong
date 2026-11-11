@@ -257,11 +257,11 @@ function doPost(e) {
 
     var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
 
-    var urlFotoKegiatan = saveFileToDrive(payload.fotoKegiatan, "Foto_Kegiatan", targetFolder);
-    var urlFotoKonsumsi = saveFileToDrive(payload.fotoKonsumsi, "Foto_Konsumsi", targetFolder);
-    var urlFotoMaterial = saveFileToDrive(payload.fotoMaterial, "Foto_Material", targetFolder);
-    var urlVideoKegiatan = payload.videoUrl || saveFileToDrive(payload.videoKegiatan, "Video_Kegiatan", targetFolder);
-    var urlDaftarHadir = saveFileToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
+    var urlFotoKegiatan = saveFilesToDrive(payload.fotoKegiatan, "Foto_Kegiatan", targetFolder);
+    var urlFotoKonsumsi = saveFilesToDrive(payload.fotoKonsumsi, "Foto_Konsumsi", targetFolder);
+    var urlFotoMaterial = saveFilesToDrive(payload.fotoMaterial, "Foto_Material", targetFolder);
+    var urlVideoKegiatan = payload.videoUrl || saveFilesToDrive(payload.videoKegiatan, "Video_Kegiatan", targetFolder);
+    var urlDaftarHadir = saveFilesToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
 
     var sheet = getSheetInstance();
     
@@ -365,6 +365,20 @@ function getOrCreateSubFolder(parent, folderName) {
     return folders.next();
   }
   return parent.createFolder(folderName);
+}
+
+function saveFilesToDrive(filesInput, prefix, targetFolder) {
+  if (!filesInput) return "";
+  if (Array.isArray(filesInput)) {
+    var urls = [];
+    for (var i = 0; i < filesInput.length; i++) {
+      var singleUrl = saveFileToDrive(filesInput[i], prefix + "_" + (i + 1), targetFolder);
+      if (singleUrl) urls.push(singleUrl);
+    }
+    return urls.join("\n");
+  } else {
+    return saveFileToDrive(filesInput, prefix, targetFolder);
+  }
 }
 
 function saveFileToDrive(fileObj, prefix, targetFolder) {

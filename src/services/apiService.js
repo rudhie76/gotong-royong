@@ -244,11 +244,19 @@ export async function submitReport(payload, onProgress) {
       timeZone: "Asia/Makassar",
     }).format(new Date()),
     ...payload,
-    // Jika ada file object, buat URL preview objek lokal
-    fotoKegiatanUrl: payload.fotoKegiatan?.base64 || payload.fotoKegiatanUrl || "",
-    fotoKonsumsiUrl: payload.fotoKonsumsi?.base64 || payload.fotoKonsumsiUrl || "",
-    fotoMaterialUrl: payload.fotoMaterial?.base64 || payload.fotoMaterialUrl || "",
-    daftarHadirUrl: payload.daftarHadir?.base64 || payload.daftarHadirUrl || "",
+    // Jika ada file object / array, buat URL preview objek lokal
+    fotoKegiatanUrl: Array.isArray(payload.fotoKegiatan)
+      ? payload.fotoKegiatan.map(f => f.base64).join('\n')
+      : (payload.fotoKegiatan?.base64 || payload.fotoKegiatanUrl || ""),
+    fotoKonsumsiUrl: Array.isArray(payload.fotoKonsumsi)
+      ? payload.fotoKonsumsi.map(f => f.base64).join('\n')
+      : (payload.fotoKonsumsi?.base64 || payload.fotoKonsumsiUrl || ""),
+    fotoMaterialUrl: Array.isArray(payload.fotoMaterial)
+      ? payload.fotoMaterial.map(f => f.base64).join('\n')
+      : (payload.fotoMaterial?.base64 || payload.fotoMaterialUrl || ""),
+    daftarHadirUrl: Array.isArray(payload.daftarHadir)
+      ? payload.daftarHadir.map(f => f.base64).join('\n')
+      : (payload.daftarHadir?.base64 || payload.daftarHadirUrl || ""),
   };
 
   localReports.unshift(newReportLocal);
