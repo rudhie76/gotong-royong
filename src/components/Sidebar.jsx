@@ -4,15 +4,11 @@ import {
   PlusCircle, 
   LayoutDashboard, 
   Printer, 
-  FileSpreadsheet, 
-  Settings, 
   ChevronLeft, 
   ChevronRight, 
-  HardDrive, 
-  Sparkles,
-  Download,
+  Building2,
   X,
-  ExternalLink
+  Settings
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -24,7 +20,6 @@ export default function Sidebar({
   setIsMobileOpen,
   onOpenSettings,
   onPrintAll,
-  isConnected,
   reportCount
 }) {
   const menuItems = [
@@ -41,8 +36,8 @@ export default function Sidebar({
     },
     {
       id: 'dashboard',
-      label: 'Dashboard & Data',
-      sublabel: 'Rekapitulasi swadaya',
+      label: 'Dashboard & Rekap',
+      sublabel: 'Data & nilai swadaya',
       icon: LayoutDashboard,
       onClick: () => {
         setActiveTab('dashboard');
@@ -52,41 +47,14 @@ export default function Sidebar({
     },
     {
       id: 'print',
-      label: 'Cetak Rekap Resmi',
-      sublabel: 'Kop Surat Kecamatan',
+      label: 'Cetak Berita Acara',
+      sublabel: 'Kop Surat Resmi Kecamatan',
       icon: Printer,
       onClick: () => {
         onPrintAll();
         setIsMobileOpen(false);
       },
       badge: null
-    },
-    {
-      id: 'template',
-      label: 'Download Excel',
-      sublabel: 'Template 21 Kolom',
-      icon: FileSpreadsheet,
-      onClick: () => {
-        const link = document.createElement('a');
-        link.href = './Template_Database_Gotong_Royong_Waru.xlsx';
-        link.download = 'Template_Database_Gotong_Royong_Waru.xlsx';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setIsMobileOpen(false);
-      },
-      badge: '.xlsx'
-    },
-    {
-      id: 'settings',
-      label: 'Pengaturan API',
-      sublabel: 'Koneksi Sheets & Drive',
-      icon: Settings,
-      onClick: () => {
-        onOpenSettings();
-        setIsMobileOpen(false);
-      },
-      badge: isConnected ? 'Online' : 'Offline'
     }
   ];
 
@@ -151,13 +119,13 @@ export default function Sidebar({
         {/* SUB-DISTRICT IDENTITY BANNER */}
         {(!isCollapsed || isMobileOpen) && (
           <div className="px-4 py-2.5 bg-slate-950/50 border-b border-slate-800/50 text-[11px] text-slate-400">
-            <span className="font-semibold text-slate-300 block">KABUPATEN PPU</span>
+            <span className="font-semibold text-slate-300 block">KABUPATEN PENAJAM PASER UTARA</span>
             <span className="text-[10px] text-slate-500">Provinsi Kalimantan Timur</span>
           </div>
         )}
 
-        {/* NAVIGATION MENU ITEMS */}
-        <div className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto">
+        {/* NAVIGATION MENU ITEMS (MURNI MENU APLIKASI) */}
+        <div className="flex-1 py-4 px-3 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -166,7 +134,7 @@ export default function Sidebar({
               <button
                 key={item.id}
                 onClick={item.onClick}
-                className={`w-full flex items-center rounded-xl p-2.5 transition-all text-left cursor-pointer group relative ${
+                className={`w-full flex items-center rounded-xl p-3 transition-all text-left cursor-pointer group relative ${
                   isActive 
                     ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950/30' 
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/80 font-medium'
@@ -183,23 +151,19 @@ export default function Sidebar({
                       {item.label}
                     </span>
                     <span className={`block text-[10px] truncate ${
-                      isActive ? 'text-emerald-100' : 'text-slate-500'
+                      isActive ? 'text-emerald-100' : 'text-slate-400'
                     }`}>
                       {item.sublabel}
                     </span>
                   </div>
                 )}
 
-                {/* Badges */}
+                {/* Counter Badges */}
                 {(!isCollapsed || isMobileOpen) && item.badge && (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                    item.id === 'settings'
-                      ? isConnected 
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : isActive 
-                        ? 'bg-white text-emerald-900' 
-                        : 'bg-slate-800 text-emerald-400 border border-slate-700'
+                    isActive 
+                      ? 'bg-white text-emerald-900' 
+                      : 'bg-slate-800 text-emerald-400 border border-slate-700'
                   }`}>
                     {item.badge}
                   </span>
@@ -216,26 +180,35 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* BOTTOM ACCOUNT / CLOUD STATUS CARD */}
-        <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-950/60">
-          <div className={`flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center' : 'space-x-3'}`}>
-            <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-emerald-400 shrink-0">
-              <HardDrive className="w-4 h-4" />
-            </div>
+        {/* BOTTOM FOOTER: INSTANSI RESMI & TOMBOL PENGATURAN DISKRIT */}
+        <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-950/70">
+          <div className="flex items-center justify-between">
+            <div className={`flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center w-full' : 'space-x-2.5'}`}>
+              <div className="w-8 h-8 rounded-lg bg-emerald-950/80 border border-emerald-700/50 flex items-center justify-center text-emerald-400 shrink-0">
+                <Building2 className="w-4 h-4" />
+              </div>
 
-            {(!isCollapsed || isMobileOpen) && (
-              <div className="truncate flex-1">
-                <span className="block text-[10px] font-medium text-slate-400">Google Drive:</span>
-                <span className="block text-[11px] font-bold text-white truncate" title="waruppusigap@gmail.com">
-                  waruppusigap@gmail.com
-                </span>
-                <div className="flex items-center space-x-1.5 mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                  <span className={`text-[10px] font-semibold ${isConnected ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {isConnected ? 'Sheets & Drive Aktif' : 'Mode Offline'}
+              {(!isCollapsed || isMobileOpen) && (
+                <div className="truncate">
+                  <span className="block text-[11px] font-bold text-white truncate">
+                    Kecamatan Waru
+                  </span>
+                  <span className="block text-[10px] text-slate-400 truncate">
+                    Kab. Penajam Paser Utara
                   </span>
                 </div>
-              </div>
+              )}
+            </div>
+
+            {/* Tombol Pengaturan Teknisi (Kecil & Bersahaja) */}
+            {(!isCollapsed || isMobileOpen) && (
+              <button
+                onClick={onOpenSettings}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Pengaturan Sistem"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
             )}
           </div>
         </div>

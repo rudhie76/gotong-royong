@@ -264,9 +264,9 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
               Input data swadaya masyarakat, dokumentasi kegiatan, dan rincian partisipasi warga se-Kecamatan Waru.
             </p>
           </div>
-          <div className="bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 text-right shrink-0">
-            <span className="text-slate-400 block text-[10px] font-semibold uppercase">Penyimpanan Terpadu:</span>
-            <span className="font-bold text-xs text-emerald-800">Google Sheets & Drive waruppusigap</span>
+          <div className="bg-emerald-50/70 px-3.5 py-2 rounded-xl border border-emerald-200 text-right shrink-0">
+            <span className="text-emerald-700 block text-[10px] font-bold uppercase">Status Sistem:</span>
+            <span className="font-bold text-xs text-emerald-900">Aktif & Siap Menerima Laporan</span>
           </div>
         </div>
       </div>

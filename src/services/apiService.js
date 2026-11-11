@@ -256,7 +256,7 @@ export async function submitReport(payload, onProgress) {
 
   // Jika URL Google Apps Script telah diset, kirim ke cloud
   if (config.scriptUrl) {
-    if (onProgress) onProgress("Mengunggah foto ke Google Drive waruppusigap@gmail.com...");
+    if (onProgress) onProgress("Mengunggah berkas dokumentasi...");
 
     try {
       const response = await fetch(config.scriptUrl, {
@@ -267,7 +267,7 @@ export async function submitReport(payload, onProgress) {
         body: JSON.stringify(payload),
       });
 
-      if (onProgress) onProgress("Mencatat data ke baris Google Sheet...");
+      if (onProgress) onProgress("Menyimpan data laporan...");
 
       const result = await response.json();
       if (result.status === "success") {
@@ -283,7 +283,7 @@ export async function submitReport(payload, onProgress) {
         return {
           success: true,
           cloudSync: true,
-          message: "Laporan berhasil terkirim ke Google Sheets & Google Drive waruppusigap@gmail.com!",
+          message: "Laporan kegiatan gotong royong berhasil dikirim dan tersimpan!",
           result,
         };
       } else {
