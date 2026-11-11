@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import FormPelaporan from './components/FormPelaporan';
 import Dashboard from './components/Dashboard';
@@ -14,6 +15,10 @@ export default function App() {
   const [dataSource, setDataSource] = useState('local_storage'); // 'google_sheet' | 'local_storage'
   const [isLoading, setIsLoading] = useState(false);
 
+  // Sidebar States (Collapsible / Hide-Unhide)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   // Modals & Print States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -22,6 +27,15 @@ export default function App() {
   // Check connection status
   const [config, setConfig] = useState(getConfig);
   const isConnected = Boolean(config.scriptUrl);
+
+  // Toggle Sidebar Handlers
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsMobileSidebarOpen((prev) => !prev);
+    } else {
+      setIsSidebarCollapsed((prev) => !prev);
+    }
+  };
 
   // Load data on initial mount
   const loadData = async () => {
@@ -33,7 +47,6 @@ export default function App() {
         setReports(res.data);
         setDataSource(res.source);
       } else {
-        // Fallback ke contoh data spreadsheet jika memori masih kosong
         setReports(SAMPLE_REPORTS);
         localStorage.setItem("sigap_gotong_royong_reports", JSON.stringify(SAMPLE_REPORTS));
         setDataSource('local_storage');
@@ -64,38 +77,73 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/70 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-100/70 flex font-sans">
       
-      {/* Navigation Header */}
-      <Header
+      {/* SIDEBAR NAVIGATION (HIDE / UNHIDE) */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
+        isMobileOpen={isMobileSidebarOpen}
+        setIsMobileOpen={setIsMobileSidebarOpen}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onPrintAll={handlePrintAll}
         isConnected={isConnected}
         reportCount={reports.length}
       />
 
-      {/* Main Content Body */}
-      <main className="flex-1 pb-16">
-        {activeTab === 'form' ? (
-          <FormPelaporan
-            onReportSubmitted={handleReportSubmitted}
-            onViewDashboard={() => setActiveTab('dashboard')}
-          />
-        ) : (
-          <Dashboard
-            reports={reports}
-            onRefresh={loadData}
-            onSelectReport={(r) => setSelectedReport(r)}
-            onPrintReport={handlePrintSingle}
-            onPrintAll={handlePrintAll}
-            dataSource={dataSource}
-            isLoading={isLoading}
-          />
-        )}
-      </main>
+      {/* MAIN CONTENT WRAPPER */}
+      <div 
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
+          isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'
+        }`}
+      >
+        {/* TOP BAR / HEADER */}
+        <Header
+          activeTab={activeTab}
+          onToggleSidebar={handleToggleSidebar}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          isConnected={isConnected}
+        />
 
-      {/* Detail Modal */}
+        {/* MAIN BODY VIEW */}
+        <main className="flex-1 pb-16">
+          {activeTab === 'form' ? (
+            <FormPelaporan
+              onReportSubmitted={handleReportSubmitted}
+              onViewDashboard={() => setActiveTab('dashboard')}
+            />
+          ) : (
+            <Dashboard
+              reports={reports}
+              onRefresh={loadData}
+              onSelectReport={(r) => setSelectedReport(r)}
+              onPrintReport={handlePrintSingle}
+              onPrintAll={handlePrintAll}
+              dataSource={dataSource}
+              isLoading={isLoading}
+            />
+          )}
+        </main>
+
+        {/* FOOTER */}
+        <footer className="no-print bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto px-4 space-y-1">
+            <p className="font-semibold text-slate-700">
+              Sistem Informasi Pelaporan Gotong Royong (SIP-Gotong Royong)
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Pemerintah Kecamatan Waru • Kabupaten Penajam Paser Utara, Kalimantan Timur
+            </p>
+            <p className="text-[10px] text-slate-400">
+              Penyimpanan Terintegrasi Google Sheets & Google Drive (waruppusigap@gmail.com)
+            </p>
+          </div>
+        </footer>
+      </div>
+
+      {/* DETAIL MODAL */}
       {selectedReport && (
         <DetailModal
           report={selectedReport}
@@ -107,7 +155,7 @@ export default function App() {
         />
       )}
 
-      {/* Cetak View (Single / Batch) */}
+      {/* CETAK VIEW (SINGLE / BATCH) */}
       {printData && (
         <CetakLaporan
           report={printData.report}
@@ -117,7 +165,7 @@ export default function App() {
         />
       )}
 
-      {/* Settings Modal */}
+      {/* SETTINGS MODAL */}
       {isSettingsOpen && (
         <PengaturanModal
           onClose={() => setIsSettingsOpen(false)}
@@ -127,21 +175,6 @@ export default function App() {
           }}
         />
       )}
-
-      {/* Footer */}
-      <footer className="no-print bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 space-y-1">
-          <p className="font-semibold text-slate-700">
-            Sistem Informasi Pelaporan Gotong Royong (SIP-Gotong Royong)
-          </p>
-          <p className="text-[11px] text-slate-400">
-            Pemerintah Kecamatan Waru • Kabupaten Penajam Paser Utara, Kalimantan Timur
-          </p>
-          <p className="text-[10px] text-slate-400">
-            Penyimpanan Terintegrasi Google Sheets & Google Drive (waruppusigap@gmail.com)
-          </p>
-        </div>
-      </footer>
 
     </div>
   );
