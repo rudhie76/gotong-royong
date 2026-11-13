@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { WILAYAH_WARU, BIDANG_KEGIATAN } from '../constants';
 import { formatRupiah } from '../services/apiService';
+import ActivityPhotoSlider from './ActivityPhotoSlider';
 
 export default function Dashboard({ 
   reports, 
@@ -189,6 +190,12 @@ export default function Dashboard({
           Akumulasi data kegiatan dan nilai ekonomi gotong royong warga se-Kecamatan Waru
         </p>
       </div>
+
+      {/* SLIDER FOTO DOKUMENTASI KEGIATAN BERGANTIAN */}
+      <ActivityPhotoSlider 
+        reports={reports} 
+        onSelectReport={onSelectReport} 
+      />
 
       {/* METRIC STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
