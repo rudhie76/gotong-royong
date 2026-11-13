@@ -159,6 +159,7 @@ export default function App() {
               />
             ) : (
               <FormPelaporan
+                key={editingReport ? editingReport.id : 'form-new'}
                 editingReport={editingReport}
                 onCancel={() => {
                   setLaporanViewMode('table');

@@ -467,17 +467,74 @@ function doPost(e) {
   }
   try {
     var payload = JSON.parse(e.postData.contents);
-    var timestampStr = Utilities.formatDate(new Date(), "Asia/Makassar", "dd/MM/yyyy HH:mm:ss");
-    var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
-
-    var urlFotoKegiatan = saveFileToDrive(payload.fotoKegiatan, "Foto_Kegiatan", targetFolder);
-    var urlFotoKonsumsi = saveFileToDrive(payload.fotoKonsumsi, "Foto_Konsumsi", targetFolder);
-    var urlFotoMaterial = saveFileToDrive(payload.fotoMaterial, "Foto_Material", targetFolder);
-    var urlVideoKegiatan = payload.videoUrl || saveFileToDrive(payload.videoKegiatan, "Video_Kegiatan", targetFolder);
-    var urlDaftarHadir = saveFileToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
-
+    var action = payload.action || "create";
     var sheet = getSheetInstance();
     if (sheet.getLastRow() === 0) inisialisasiDatabaseOtomatis();
+
+    // 1. AKSI HAPUS (DELETE)
+    if (action === "delete") {
+      var targetRow = findRowIndex(sheet, payload);
+      if (targetRow > 1) {
+        sheet.deleteRow(targetRow);
+        return createJsonResponse({ status: "success", message: "Laporan baris ke-" + targetRow + " berhasil dihapus!", deletedRow: targetRow });
+      }
+      return createJsonResponse({ status: "warning", message: "Baris tidak ditemukan." });
+    }
+
+    // 2. AKSI EDIT / UPDATE
+    if (action === "update" || action === "edit") {
+      var targetRow = findRowIndex(sheet, payload);
+      if (targetRow > 1) {
+        var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
+        var urlFotoKegiatan = mergeFileUrls(payload.fotoKegiatan, payload.existingFotoKegiatan || payload.fotoKegiatanUrl, "Foto_Kegiatan", targetFolder);
+        var urlFotoKonsumsi = mergeFileUrls(payload.fotoKonsumsi, payload.existingFotoKonsumsi || payload.fotoKonsumsiUrl, "Foto_Konsumsi", targetFolder);
+        var urlFotoMaterial = mergeFileUrls(payload.fotoMaterial, payload.existingFotoMaterial || payload.fotoMaterialUrl, "Foto_Material", targetFolder);
+        var urlVideoKegiatan = payload.videoUrl || "";
+        var urlDaftarHadir = mergeFileUrls(payload.daftarHadir, payload.existingDaftarHadir || payload.daftarHadirUrl, "Daftar_Hadir", targetFolder);
+        var existingTimestamp = payload.timestamp || sheet.getRange(targetRow, 1).getValue();
+
+        var updatedRowData = [
+          existingTimestamp,
+          payload.desa || "Kecamatan Waru",
+          payload.bidangKegiatan || "Lingkungan",
+          payload.waktuKegiatan || "",
+          payload.deskripsiKegiatan || "",
+          payload.lokasiKegiatan || "",
+          payload.jumlahHadir || 0,
+          cleanNumber(payload.nilaiOrangRupiah),
+          urlFotoKegiatan || "",
+          payload.jenisKonsumsi || "",
+          cleanNumber(payload.nilaiKonsumsiRupiah),
+          urlFotoKonsumsi || "",
+          payload.peralatan || "",
+          payload.material || "",
+          cleanNumber(payload.nilaiMaterialRupiah),
+          urlFotoMaterial || "",
+          urlVideoKegiatan || "",
+          urlDaftarHadir || "",
+          payload.capaian || "",
+          payload.kendala || "",
+          payload.catatanTambahan || ""
+        ];
+        sheet.getRange(targetRow, 1, 1, updatedRowData.length).setValues([updatedRowData]);
+        return createJsonResponse({
+          status: "success",
+          message: "Perubahan laporan berhasil disimpan ke Google Sheets!",
+          updatedRow: targetRow,
+          driveLinks: { fotoKegiatan: urlFotoKegiatan, fotoKonsumsi: urlFotoKonsumsi, fotoMaterial: urlFotoMaterial, videoKegiatan: urlVideoKegiatan, daftarHadir: urlDaftarHadir }
+        });
+      }
+      throw new Error("Baris data tidak ditemukan untuk diedit.");
+    }
+
+    // 3. AKSI CREATE
+    var timestampStr = Utilities.formatDate(new Date(), "Asia/Makassar", "dd/MM/yyyy HH:mm:ss");
+    var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
+    var urlFotoKegiatan = saveFilesToDrive(payload.fotoKegiatan, "Foto_Kegiatan", targetFolder);
+    var urlFotoKonsumsi = saveFilesToDrive(payload.fotoKonsumsi, "Foto_Konsumsi", targetFolder);
+    var urlFotoMaterial = saveFilesToDrive(payload.fotoMaterial, "Foto_Material", targetFolder);
+    var urlVideoKegiatan = payload.videoUrl || saveFilesToDrive(payload.videoKegiatan, "Video_Kegiatan", targetFolder);
+    var urlDaftarHadir = saveFilesToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
 
     var rowData = [
       timestampStr,
@@ -553,6 +610,41 @@ function saveFileToDrive(fileObj, prefix, folder) {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return file.getUrl();
   } catch(e) { return ""; }
+}
+
+function findRowIndex(sheet, payload) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return -1;
+  var targetRow = Number(payload.rowNumber);
+  var targetTimestamp = String(payload.timestamp || "").trim();
+  if (targetRow && targetRow >= 2 && targetRow <= lastRow) return targetRow;
+  var rangeVals = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < rangeVals.length; i++) {
+    var curVal = rangeVals[i][0];
+    var curTime = curVal instanceof Date ? Utilities.formatDate(curVal, "Asia/Makassar", "dd/MM/yyyy HH:mm") : String(curVal || "").trim();
+    if (targetTimestamp && (curTime === targetTimestamp || curTime.indexOf(targetTimestamp) !== -1 || targetTimestamp.indexOf(curTime) !== -1)) return i + 2;
+  }
+  return -1;
+}
+
+function mergeFileUrls(filesInput, existingUrlStr, prefix, folder) {
+  var newUrls = saveFilesToDrive(filesInput, prefix, folder);
+  var exist = existingUrlStr ? String(existingUrlStr).trim() : "";
+  if (newUrls && exist) return exist + "\n" + newUrls;
+  return newUrls || exist || "";
+}
+
+function saveFilesToDrive(filesInput, prefix, folder) {
+  if (!filesInput) return "";
+  if (Array.isArray(filesInput)) {
+    var urls = [];
+    for (var i = 0; i < filesInput.length; i++) {
+      var u = saveFileToDrive(filesInput[i], prefix + "_" + (i + 1), folder);
+      if (u) urls.push(u);
+    }
+    return urls.join("\n");
+  }
+  return saveFileToDrive(filesInput, prefix, folder);
 }
 
 function cleanNumber(val) {

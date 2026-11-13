@@ -382,6 +382,9 @@ export async function updateReport(reportId, payload, onProgress) {
 
       const result = await response.json();
       if (result.status === "success") {
+        // Deteksi apakah deployment Google Apps Script di server Google masih versi lama (append-only)
+        const isOldScriptVersion = result.message && result.message.indexOf("Perubahan") === -1 && !result.updatedRow;
+
         if (result.driveLinks && foundIndex !== -1) {
           if (result.driveLinks.fotoKegiatan) localReports[foundIndex].fotoKegiatanUrl = result.driveLinks.fotoKegiatan;
           if (result.driveLinks.fotoKonsumsi) localReports[foundIndex].fotoKonsumsiUrl = result.driveLinks.fotoKonsumsi;
@@ -390,9 +393,20 @@ export async function updateReport(reportId, payload, onProgress) {
           localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
         }
 
+        if (isOldScriptVersion) {
+          return {
+            success: true,
+            cloudSync: true,
+            needsScriptUpdate: true,
+            message: "Laporan tersimpan, namun Google Apps Script masih versi lama (menambahkan baris baru alih-alih menimpa). Silakan perbarui versi script di Apps Script.",
+            result,
+          };
+        }
+
         return {
           success: true,
           cloudSync: true,
+          needsScriptUpdate: false,
           message: "Perubahan laporan berhasil disimpan ke Google Sheets & Drive!",
           result,
         };

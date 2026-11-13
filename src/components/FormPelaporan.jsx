@@ -390,20 +390,39 @@ export default function FormPelaporan({
         )}
       </div>
 
-      {/* Success Dialog Modal */}
+      {/* Success / Info Dialog Modal */}
       {submitSuccess && (
-        <div className="mb-6 p-5 bg-emerald-50 border-2 border-emerald-500 rounded-2xl shadow-md text-emerald-900 animate-in fade-in duration-300">
+        <div className={`mb-6 p-5 rounded-2xl shadow-md animate-in fade-in duration-300 ${
+          submitSuccess.needsScriptUpdate 
+            ? 'bg-amber-50 border-2 border-amber-400 text-amber-950' 
+            : 'bg-emerald-50 border-2 border-emerald-500 text-emerald-900'
+        }`}>
           <div className="flex items-start space-x-3">
-            <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs">
-              <Check className="w-6 h-6" />
+            <div className={`p-2 rounded-xl text-white shadow-xs ${
+              submitSuccess.needsScriptUpdate ? 'bg-amber-500' : 'bg-emerald-500'
+            }`}>
+              {submitSuccess.needsScriptUpdate ? <AlertCircle className="w-6 h-6" /> : <Check className="w-6 h-6" />}
             </div>
             <div className="flex-1">
-              <h3 className="text-base font-bold text-emerald-950">
-                Laporan Gotong Royong Berhasil Disimpan!
+              <h3 className="text-base font-bold">
+                {isEdit ? "Perubahan Laporan Disimpan!" : "Laporan Gotong Royong Berhasil Disimpan!"}
               </h3>
-              <p className="text-xs text-emerald-800 mt-1">
+              <p className="text-xs mt-1">
                 {submitSuccess.message}
               </p>
+
+              {submitSuccess.needsScriptUpdate && (
+                <div className="mt-3 p-3 bg-white/90 rounded-xl border border-amber-300 text-xs text-amber-900 space-y-1">
+                  <p className="font-bold">Langkah Cepat Memperbarui Google Apps Script:</p>
+                  <ol className="list-decimal pl-4 space-y-0.5 text-[11px]">
+                    <li>Buka Google Sheets di akun <strong>waruppusigap@gmail.com</strong>.</li>
+                    <li>Klik menu <strong>Ekstensi &gt; Apps Script</strong>.</li>
+                    <li>Ganti seluruh isi kode dengan kode terbaru dari <code>apps-script/Code.gs</code>.</li>
+                    <li>Klik tombol biru <strong>Terapkan (Deploy) &gt; Kelola penerapan &gt; Edit (ikon pensil) &gt; Versi Baru &gt; Terapkan</strong>.</li>
+                  </ol>
+                </div>
+              )}
+
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold border border-emerald-300">
                   Total Nilai Swadaya: {formatRupiah(totalSwadaya)}
@@ -413,6 +432,15 @@ export default function FormPelaporan({
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-2.5">
+                {onCancel && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer transition-colors"
+                  >
+                    ← Kembali ke Tabel Laporan
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onViewDashboard}
@@ -420,13 +448,15 @@ export default function FormPelaporan({
                 >
                   Lihat di Dashboard →
                 </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 bg-white hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-300 cursor-pointer transition-colors"
-                >
-                  + Buat Laporan Baru
-                </button>
+                {!isEdit && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2 bg-white hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-300 cursor-pointer transition-colors"
+                  >
+                    + Buat Laporan Baru
+                  </button>
+                )}
               </div>
             </div>
           </div>

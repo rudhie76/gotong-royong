@@ -404,26 +404,20 @@ function findRowIndex(sheet, payload) {
 
   var targetRow = Number(payload.rowNumber);
   var targetTimestamp = String(payload.timestamp || "").trim();
-  var targetDeskripsi = String(payload.deskripsiKegiatan || "").trim();
 
-  // 1. Cek langsung nomor baris jika ada
+  // 1. Jika nomor baris valid dan dalam rentang baris data
   if (targetRow && targetRow >= 2 && targetRow <= lastRow) {
-    if (!targetTimestamp) return targetRow;
-    var rowTime = String(sheet.getRange(targetRow, 1).getValue()).trim();
-    if (rowTime === targetTimestamp || rowTime.indexOf(targetTimestamp) !== -1 || targetTimestamp.indexOf(rowTime) !== -1) {
-      return targetRow;
-    }
+    return targetRow;
   }
 
-  // 2. Scan kolom A (Timestamp) dan E (Deskripsi)
-  var rangeVals = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  // 2. Scan kolom A (Timestamp) jika rowNumber bergeser
+  var rangeVals = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   for (var i = 0; i < rangeVals.length; i++) {
-    var curTime = String(rangeVals[i][0]).trim();
-    var curDesc = String(rangeVals[i][4]).trim();
-    if (targetTimestamp && (curTime === targetTimestamp || curTime.indexOf(targetTimestamp) !== -1)) {
-      return i + 2;
-    }
-    if (targetDeskripsi && curDesc === targetDeskripsi) {
+    var curVal = rangeVals[i][0];
+    var curTime = curVal instanceof Date 
+      ? Utilities.formatDate(curVal, "Asia/Makassar", "dd/MM/yyyy HH:mm")
+      : String(curVal || "").trim();
+    if (targetTimestamp && (curTime === targetTimestamp || curTime.indexOf(targetTimestamp) !== -1 || targetTimestamp.indexOf(curTime) !== -1)) {
       return i + 2;
     }
   }
