@@ -2,18 +2,23 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import FormPelaporan from './components/FormPelaporan';
+import TabelLaporan from './components/TabelLaporan';
 import Dashboard from './components/Dashboard';
 import DetailModal from './components/DetailModal';
 import CetakLaporan from './components/CetakLaporan';
 import PengaturanModal from './components/PengaturanModal';
 import { SAMPLE_REPORTS } from './constants';
-import { fetchReports, getConfig } from './services/apiService';
+import { fetchReports, deleteReport, getConfig } from './services/apiService';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); // Default menu utama adalah Dashboard
   const [reports, setReports] = useState([]);
   const [dataSource, setDataSource] = useState('local_storage'); // 'google_sheet' | 'local_storage'
   const [isLoading, setIsLoading] = useState(false);
+
+  // Mode Tampilan di Menu Input Laporan: 'table' (daftar tabel) atau 'form' (formulir input/edit)
+  const [laporanViewMode, setLaporanViewMode] = useState('table');
+  const [editingReport, setEditingReport] = useState(null);
 
   // Sidebar States (Collapsible / Hide-Unhide)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -63,9 +68,39 @@ export default function App() {
     loadData();
   }, []);
 
-  // Handlers
+  // Handlers untuk Navigasi Menu & Form Laporan
+  const handleOpenLaporanMenu = () => {
+    setActiveTab('form');
+    setLaporanViewMode('table');
+    setEditingReport(null);
+  };
+
+  const handleAddNewReport = () => {
+    setEditingReport(null);
+    setLaporanViewMode('form');
+    setActiveTab('form');
+  };
+
+  const handleEditReport = (report) => {
+    setEditingReport(report);
+    setLaporanViewMode('form');
+    setActiveTab('form');
+  };
+
+  const handleDeleteReport = async (report) => {
+    try {
+      await deleteReport(report.id, report);
+      await loadData();
+    } catch (err) {
+      console.error("Gagal menghapus laporan:", err);
+      alert("Gagal menghapus laporan: " + err.message);
+    }
+  };
+
   const handleReportSubmitted = () => {
     loadData();
+    setLaporanViewMode('table');
+    setEditingReport(null);
   };
 
   const handlePrintSingle = (report) => {
@@ -88,6 +123,7 @@ export default function App() {
         isMobileOpen={isMobileSidebarOpen}
         setIsMobileOpen={setIsMobileSidebarOpen}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenLaporan={handleOpenLaporanMenu}
         onPrintAll={handlePrintAll}
         isConnected={isConnected}
         reportCount={reports.length}
@@ -110,10 +146,28 @@ export default function App() {
         {/* MAIN BODY VIEW */}
         <main className="flex-1 pb-16">
           {activeTab === 'form' ? (
-            <FormPelaporan
-              onReportSubmitted={handleReportSubmitted}
-              onViewDashboard={() => setActiveTab('dashboard')}
-            />
+            laporanViewMode === 'table' ? (
+              <TabelLaporan
+                reports={reports}
+                onAddNew={handleAddNewReport}
+                onEditReport={handleEditReport}
+                onDeleteReport={handleDeleteReport}
+                onSelectReport={(r) => setSelectedReport(r)}
+                onPrintReport={handlePrintSingle}
+                onRefresh={loadData}
+                isLoading={isLoading}
+              />
+            ) : (
+              <FormPelaporan
+                editingReport={editingReport}
+                onCancel={() => {
+                  setLaporanViewMode('table');
+                  setEditingReport(null);
+                }}
+                onReportSubmitted={handleReportSubmitted}
+                onViewDashboard={() => setActiveTab('dashboard')}
+              />
+            )
           ) : (
             <Dashboard
               reports={reports}
@@ -121,7 +175,9 @@ export default function App() {
               onSelectReport={(r) => setSelectedReport(r)}
               onPrintReport={handlePrintSingle}
               onPrintAll={handlePrintAll}
-              onNewReport={() => setActiveTab('form')}
+              onNewReport={handleAddNewReport}
+              onEditReport={handleEditReport}
+              onDeleteReport={handleDeleteReport}
               dataSource={dataSource}
               isLoading={isLoading}
             />

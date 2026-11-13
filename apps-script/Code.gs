@@ -253,8 +253,91 @@ function doPost(e) {
     }
 
     var payload = JSON.parse(e.postData.contents);
-    var timestampStr = Utilities.formatDate(new Date(), "Asia/Makassar", "dd/MM/yyyy HH:mm:ss");
+    var action = payload.action || "create";
+    var sheet = getSheetInstance();
+    
+    // Pastikan header kolom sudah ada jika sheet masih kosong
+    if (sheet.getLastRow() === 0) {
+      inisialisasiDatabaseOtomatis();
+    }
 
+    // ================= 1. AKSI HAPUS (DELETE) =================
+    if (action === "delete") {
+      var targetRow = findRowIndex(sheet, payload);
+      if (targetRow > 1) {
+        sheet.deleteRow(targetRow);
+        return createJsonResponse({
+          status: "success",
+          message: "Laporan baris ke-" + targetRow + " berhasil dihapus dari Google Sheets!",
+          deletedRow: targetRow
+        });
+      } else {
+        return createJsonResponse({
+          status: "warning",
+          message: "Data baris tidak ditemukan di Google Sheets untuk dihapus."
+        });
+      }
+    }
+
+    // ================= 2. AKSI EDIT / UPDATE =================
+    if (action === "update" || action === "edit") {
+      var targetRow = findRowIndex(sheet, payload);
+      if (targetRow > 1) {
+        var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
+
+        var urlFotoKegiatan = mergeFileUrls(payload.fotoKegiatan, payload.existingFotoKegiatan || payload.fotoKegiatanUrl, "Foto_Kegiatan", targetFolder);
+        var urlFotoKonsumsi = mergeFileUrls(payload.fotoKonsumsi, payload.existingFotoKonsumsi || payload.fotoKonsumsiUrl, "Foto_Konsumsi", targetFolder);
+        var urlFotoMaterial = mergeFileUrls(payload.fotoMaterial, payload.existingFotoMaterial || payload.fotoMaterialUrl, "Foto_Material", targetFolder);
+        var urlVideoKegiatan = payload.videoUrl || "";
+        var urlDaftarHadir = mergeFileUrls(payload.daftarHadir, payload.existingDaftarHadir || payload.daftarHadirUrl, "Daftar_Hadir", targetFolder);
+
+        var existingTimestamp = payload.timestamp || sheet.getRange(targetRow, 1).getValue();
+
+        var updatedRowData = [
+          existingTimestamp,
+          payload.desa || "Kecamatan Waru",
+          payload.bidangKegiatan || "Lingkungan",
+          payload.waktuKegiatan || "",
+          payload.deskripsiKegiatan || "",
+          payload.lokasiKegiatan || "",
+          payload.jumlahHadir || 0,
+          cleanNumber(payload.nilaiOrangRupiah),
+          urlFotoKegiatan || "",
+          payload.jenisKonsumsi || "",
+          cleanNumber(payload.nilaiKonsumsiRupiah),
+          urlFotoKonsumsi || "",
+          payload.peralatan || "",
+          payload.material || "",
+          cleanNumber(payload.nilaiMaterialRupiah),
+          urlFotoMaterial || "",
+          urlVideoKegiatan || "",
+          urlDaftarHadir || "",
+          payload.capaian || "",
+          payload.kendala || "",
+          payload.catatanTambahan || ""
+        ];
+
+        sheet.getRange(targetRow, 1, 1, updatedRowData.length).setValues([updatedRowData]);
+
+        return createJsonResponse({
+          status: "success",
+          message: "Perubahan laporan berhasil disimpan ke Google Sheets!",
+          updatedRow: targetRow,
+          driveLinks: {
+            fotoKegiatan: urlFotoKegiatan,
+            fotoKonsumsi: urlFotoKonsumsi,
+            fotoMaterial: urlFotoMaterial,
+            videoKegiatan: urlVideoKegiatan,
+            daftarHadir: urlDaftarHadir
+          }
+        });
+      } else {
+        throw new Error("Baris data tidak ditemukan di Google Sheets untuk diedit.");
+      }
+    }
+
+    // ================= 3. AKSI CREATE / TAMBAH BARU (DEFAULT) =================
+    var timestampStr = Utilities.formatDate(new Date(), "Asia/Makassar", "dd/MM/yyyy HH:mm:ss");
     var targetFolder = getTargetFolder(payload.desa || "Kecamatan Waru");
 
     var urlFotoKegiatan = saveFilesToDrive(payload.fotoKegiatan, "Foto_Kegiatan", targetFolder);
@@ -262,13 +345,6 @@ function doPost(e) {
     var urlFotoMaterial = saveFilesToDrive(payload.fotoMaterial, "Foto_Material", targetFolder);
     var urlVideoKegiatan = payload.videoUrl || saveFilesToDrive(payload.videoKegiatan, "Video_Kegiatan", targetFolder);
     var urlDaftarHadir = saveFilesToDrive(payload.daftarHadir, "Daftar_Hadir", targetFolder);
-
-    var sheet = getSheetInstance();
-    
-    // Pastikan header kolom sudah ada jika sheet masih kosong
-    if (sheet.getLastRow() === 0) {
-      inisialisasiDatabaseOtomatis();
-    }
 
     var rowData = [
       timestampStr,
@@ -312,11 +388,60 @@ function doPost(e) {
   } catch (err) {
     return createJsonResponse({
       status: "error",
-      message: "Gagal menyimpan laporan: " + err.toString()
+      message: "Gagal memproses data laporan: " + err.toString()
     });
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Mencari indeks baris (1-based) untuk edit atau hapus
+ */
+function findRowIndex(sheet, payload) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return -1;
+
+  var targetRow = Number(payload.rowNumber);
+  var targetTimestamp = String(payload.timestamp || "").trim();
+  var targetDeskripsi = String(payload.deskripsiKegiatan || "").trim();
+
+  // 1. Cek langsung nomor baris jika ada
+  if (targetRow && targetRow >= 2 && targetRow <= lastRow) {
+    if (!targetTimestamp) return targetRow;
+    var rowTime = String(sheet.getRange(targetRow, 1).getValue()).trim();
+    if (rowTime === targetTimestamp || rowTime.indexOf(targetTimestamp) !== -1 || targetTimestamp.indexOf(rowTime) !== -1) {
+      return targetRow;
+    }
+  }
+
+  // 2. Scan kolom A (Timestamp) dan E (Deskripsi)
+  var rangeVals = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  for (var i = 0; i < rangeVals.length; i++) {
+    var curTime = String(rangeVals[i][0]).trim();
+    var curDesc = String(rangeVals[i][4]).trim();
+    if (targetTimestamp && (curTime === targetTimestamp || curTime.indexOf(targetTimestamp) !== -1)) {
+      return i + 2;
+    }
+    if (targetDeskripsi && curDesc === targetDeskripsi) {
+      return i + 2;
+    }
+  }
+
+  return -1;
+}
+
+/**
+ * Menggabungkan URL berkas lama dan URL berkas yang baru diupload
+ */
+function mergeFileUrls(filesInput, existingUrlStr, prefix, targetFolder) {
+  var newUrls = saveFilesToDrive(filesInput, prefix, targetFolder);
+  var existingUrls = existingUrlStr ? String(existingUrlStr).trim() : "";
+  
+  if (newUrls && existingUrls) {
+    return existingUrls + "\n" + newUrls;
+  }
+  return newUrls || existingUrls || "";
 }
 
 // ================= HELPER FUNCTIONS =================

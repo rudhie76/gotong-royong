@@ -20,6 +20,7 @@ export default function Sidebar({
   setIsMobileOpen,
   onOpenSettings,
   onPrintAll,
+  onOpenLaporan,
   reportCount
 }) {
   const menuItems = [
@@ -37,10 +38,14 @@ export default function Sidebar({
     {
       id: 'form',
       label: 'Input Laporan',
-      sublabel: 'Entri kegiatan baru',
+      sublabel: 'Tabel data & entri baru',
       icon: PlusCircle,
       onClick: () => {
-        setActiveTab('form');
+        if (onOpenLaporan) {
+          onOpenLaporan();
+        } else {
+          setActiveTab('form');
+        }
         setIsMobileOpen(false);
       },
       badge: null

@@ -21,7 +21,9 @@ import {
   RefreshCw,
   Image as ImageIcon,
   X,
-  Plus
+  Plus,
+  ArrowLeft,
+  Edit3
 } from 'lucide-react';
 import { 
   WILAYAH_WARU, 
@@ -34,34 +36,76 @@ import {
   formatRupiah, 
   compressAndEncodeImage, 
   submitReport,
+  updateReport,
   getConfig 
 } from '../services/apiService';
 import confetti from 'canvas-confetti';
 
-export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
+// Helper parse string multiple URLs
+const parseUrls = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean);
+  return String(val)
+    .split(/[\n\r,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+};
+
+export default function FormPelaporan({ 
+  editingReport = null, 
+  onReportSubmitted, 
+  onCancel,
+  onViewDashboard 
+}) {
   const config = getConfig();
+  const isEdit = Boolean(editingReport);
 
   // State Form
-  const [formData, setFormData] = useState({
-    desa: 'Kecamatan Waru',
-    desaCustom: '',
-    bidangKegiatan: 'Lingkungan (Gerakan Indonesia Bersih)',
-    tanggal: new Date().toISOString().split('T')[0],
-    jam: '08:00',
-    waktuCustom: '',
-    deskripsiKegiatan: '',
-    lokasiKegiatan: '',
-    jumlahHadir: 20,
-    nilaiOrangRupiah: 2000000,
-    jenisKonsumsi: 'Gorengan dan Minuman Teh Hangat',
-    nilaiKonsumsiRupiah: 250000,
-    peralatan: 'Cangkul, mesin rumput, parang, sapu lidi',
-    material: 'Obat Rumput, BBM Mesin',
-    nilaiMaterialRupiah: 200000,
-    videoUrl: '',
-    capaian: '',
-    kendala: '',
-    catatanTambahan: '',
+  const [formData, setFormData] = useState(() => {
+    if (editingReport) {
+      return {
+        desa: editingReport.desa || 'Kecamatan Waru',
+        desaCustom: '',
+        bidangKegiatan: editingReport.bidangKegiatan || 'Lingkungan (Gerakan Indonesia Bersih)',
+        tanggal: editingReport.tanggal || new Date().toISOString().split('T')[0],
+        jam: editingReport.jam || '08:00',
+        waktuCustom: editingReport.waktuKegiatan || '',
+        deskripsiKegiatan: editingReport.deskripsiKegiatan || '',
+        lokasiKegiatan: editingReport.lokasiKegiatan || '',
+        jumlahHadir: editingReport.jumlahHadir || 20,
+        nilaiOrangRupiah: editingReport.nilaiOrangRupiah || 2000000,
+        jenisKonsumsi: editingReport.jenisKonsumsi || 'Gorengan dan Minuman Teh Hangat',
+        nilaiKonsumsiRupiah: editingReport.nilaiKonsumsiRupiah || 250000,
+        peralatan: editingReport.peralatan || 'Cangkul, mesin rumput, parang, sapu lidi',
+        material: editingReport.material || 'Obat Rumput, BBM Mesin',
+        nilaiMaterialRupiah: editingReport.nilaiMaterialRupiah || 200000,
+        videoUrl: editingReport.videoUrl || '',
+        capaian: editingReport.capaian || '',
+        kendala: editingReport.kendala || '',
+        catatanTambahan: editingReport.catatanTambahan || '',
+      };
+    }
+    return {
+      desa: 'Kecamatan Waru',
+      desaCustom: '',
+      bidangKegiatan: 'Lingkungan (Gerakan Indonesia Bersih)',
+      tanggal: new Date().toISOString().split('T')[0],
+      jam: '08:00',
+      waktuCustom: '',
+      deskripsiKegiatan: '',
+      lokasiKegiatan: '',
+      jumlahHadir: 20,
+      nilaiOrangRupiah: 2000000,
+      jenisKonsumsi: 'Gorengan dan Minuman Teh Hangat',
+      nilaiKonsumsiRupiah: 250000,
+      peralatan: 'Cangkul, mesin rumput, parang, sapu lidi',
+      material: 'Obat Rumput, BBM Mesin',
+      nilaiMaterialRupiah: 200000,
+      videoUrl: '',
+      capaian: '',
+      kendala: '',
+      catatanTambahan: '',
+    };
   });
 
   // State Files Uploaded (Mendukung Multi-Foto / Minimal 2 Foto)
@@ -73,11 +117,21 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
   });
 
   // State Previews (Array of URL strings)
-  const [previews, setPreviews] = useState({
-    fotoKegiatan: [],
-    fotoKonsumsi: [],
-    fotoMaterial: [],
-    daftarHadir: [],
+  const [previews, setPreviews] = useState(() => {
+    if (editingReport) {
+      return {
+        fotoKegiatan: parseUrls(editingReport.fotoKegiatanUrl),
+        fotoKonsumsi: parseUrls(editingReport.fotoKonsumsiUrl),
+        fotoMaterial: parseUrls(editingReport.fotoMaterialUrl),
+        daftarHadir: parseUrls(editingReport.daftarHadirUrl),
+      };
+    }
+    return {
+      fotoKegiatan: [],
+      fotoKonsumsi: [],
+      fotoMaterial: [],
+      daftarHadir: [],
+    };
   });
 
   // Submission Status
@@ -188,17 +242,23 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
       return;
     }
 
-    // Validasi Minimal 2 Foto untuk Foto Kegiatan Utama
-    if (!files.fotoKegiatan || files.fotoKegiatan.length < 2) {
-      alert("Mohon unggah minimal 2 foto untuk dokumentasi kegiatan gotong royong (saat ini baru " + (files.fotoKegiatan?.length || 0) + " foto).");
+    // Validasi Minimal 2 Foto untuk Foto Kegiatan Utama (Foto lama + foto baru)
+    if (!previews.fotoKegiatan || previews.fotoKegiatan.length < 2) {
+      alert("Mohon unggah minimal 2 foto untuk dokumentasi kegiatan gotong royong (saat ini baru " + (previews.fotoKegiatan?.length || 0) + " foto).");
       return;
     }
 
     setIsSubmitting(true);
-    setSubmitProgress("Menyiapkan dan mengompres berkas foto...");
+    setSubmitProgress("Menyiapkan dan memproses berkas laporan...");
 
     const finalDesa = formData.desa === "Lainnya" ? formData.desaCustom : formData.desa;
     const waktuFinal = getFormattedWaktu();
+
+    // Pisahkan URL berkas lama yang dipertahankan
+    const existingFotoKegiatan = previews.fotoKegiatan.filter(u => typeof u === 'string' && u.startsWith('http'));
+    const existingFotoKonsumsi = previews.fotoKonsumsi.filter(u => typeof u === 'string' && u.startsWith('http'));
+    const existingFotoMaterial = previews.fotoMaterial.filter(u => typeof u === 'string' && u.startsWith('http'));
+    const existingDaftarHadir = previews.daftarHadir.filter(u => typeof u === 'string' && u.startsWith('http'));
 
     const payload = {
       desa: finalDesa,
@@ -208,23 +268,35 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
       lokasiKegiatan: formData.lokasiKegiatan,
       jumlahHadir: Number(formData.jumlahHadir) || 0,
       nilaiOrangRupiah: Number(formData.nilaiOrangRupiah) || 0,
-      fotoKegiatan: files.fotoKegiatan, // Array of files (>= 2)
+      fotoKegiatan: files.fotoKegiatan, // Berkas baru jika ada
+      existingFotoKegiatan,
       jenisKonsumsi: formData.jenisKonsumsi,
       nilaiKonsumsiRupiah: Number(formData.nilaiKonsumsiRupiah) || 0,
-      fotoKonsumsi: files.fotoKonsumsi, // Array of files
+      fotoKonsumsi: files.fotoKonsumsi,
+      existingFotoKonsumsi,
       peralatan: formData.peralatan,
       material: formData.material,
       nilaiMaterialRupiah: Number(formData.nilaiMaterialRupiah) || 0,
-      fotoMaterial: files.fotoMaterial, // Array of files
+      fotoMaterial: files.fotoMaterial,
+      existingFotoMaterial,
       videoUrl: formData.videoUrl,
-      daftarHadir: files.daftarHadir, // Array of files
+      daftarHadir: files.daftarHadir,
+      existingDaftarHadir,
       capaian: formData.capaian,
       kendala: formData.kendala,
       catatanTambahan: formData.catatanTambahan,
     };
 
     try {
-      const res = await submitReport(payload, (msg) => setSubmitProgress(msg));
+      let res;
+      if (isEdit && editingReport) {
+        payload.timestamp = editingReport.timestamp;
+        payload.rowNumber = editingReport.rowNumber;
+        res = await updateReport(editingReport.id, payload, (msg) => setSubmitProgress(msg));
+      } else {
+        res = await submitReport(payload, (msg) => setSubmitProgress(msg));
+      }
+
       setIsSubmitting(false);
       setSubmitSuccess(res);
 
@@ -271,14 +343,51 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6">
       
-      {/* Banner Intro Bersih (Tanpa Judul Ganda) */}
-      <div className="mb-6 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-        <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-          Formulir Entri Laporan Gotong Royong
-        </h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Lengkapi rincian kegiatan, estimasi nilai swadaya warga, dan berkas dokumentasi (minimal 2 foto kegiatan).
-        </p>
+      {/* Banner Intro & Tombol Kembali */}
+      <div className="mb-6 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="inline-flex items-center space-x-1 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 transition-colors cursor-pointer mr-1"
+                title="Kembali ke Tabel Daftar Laporan"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Kembali ke Tabel</span>
+              </button>
+            )}
+            {isEdit ? (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center space-x-1">
+                <Edit3 className="w-3 h-3" />
+                <span>Mode Edit Laporan</span>
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Entri Baru
+              </span>
+            )}
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight mt-1.5">
+            {isEdit ? `Edit Laporan Kegiatan - ${formData.desa}` : 'Formulir Entri Laporan Gotong Royong'}
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {isEdit 
+              ? 'Perbarui rincian kegiatan atau tambah/hapus foto dokumentasi (minimal 2 foto kegiatan).'
+              : 'Lengkapi rincian kegiatan, estimasi nilai swadaya warga, dan berkas dokumentasi (minimal 2 foto kegiatan).'}
+          </p>
+        </div>
+
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border border-slate-200 shrink-0 self-start sm:self-auto"
+          >
+            Batal
+          </button>
+        )}
       </div>
 
       {/* Success Dialog Modal */}
@@ -931,7 +1040,17 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer border border-slate-300"
+              >
+                Batal / Kembali
+              </button>
+            )}
+
             <button
               type="submit"
               disabled={isSubmitting}
@@ -940,7 +1059,12 @@ export default function FormPelaporan({ onReportSubmitted, onViewDashboard }) {
               {isSubmitting ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>{submitProgress || "Mengirim Laporan..."}</span>
+                  <span>{submitProgress || "Menyimpan Data..."}</span>
+                </>
+              ) : isEdit ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Simpan Perubahan Laporan</span>
                 </>
               ) : (
                 <>

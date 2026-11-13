@@ -20,7 +20,9 @@ import {
   ChevronRight,
   TrendingUp,
   Sparkles,
-  PlusCircle
+  PlusCircle,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { WILAYAH_WARU, BIDANG_KEGIATAN } from '../constants';
 import { formatRupiah } from '../services/apiService';
@@ -32,6 +34,8 @@ export default function Dashboard({
   onPrintReport, 
   onPrintAll, 
   onNewReport,
+  onEditReport,
+  onDeleteReport,
   isLoading 
 }) {
   // Filters State
@@ -594,6 +598,24 @@ export default function Dashboard({
                       {/* Aksi */}
                       <td className="py-3 px-4 align-top text-center">
                         <div className="flex items-center justify-center space-x-1.5">
+                          {onEditReport && (
+                            <button
+                              onClick={() => onEditReport(r)}
+                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg transition-colors cursor-pointer"
+                              title="Edit / Ubah Laporan Ini"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {onDeleteReport && (
+                            <button
+                              onClick={() => onDeleteReport(r)}
+                              className="p-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-lg transition-colors cursor-pointer"
+                              title="Hapus Laporan Ini"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => onSelectReport(r)}
                             className="p-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 rounded-lg transition-colors cursor-pointer"

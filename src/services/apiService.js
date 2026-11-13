@@ -178,7 +178,8 @@ export async function fetchReports() {
         if (json.status === "success" && Array.isArray(json.data)) {
           // Normalisasi nama field dari spreadsheet ke format frontend
           const mapped = json.data.map((row, idx) => ({
-            id: `row-${idx + 1}`,
+            id: row["Timestamp"] ? `rep-${String(row["Timestamp"]).replace(/[^a-zA-Z0-9]/g, '')}-${idx}` : `row-${idx + 1}`,
+            rowNumber: row["_rowNumber"] || (idx + 2),
             timestamp: row["Timestamp"] || "",
             desa: row["Kecamatan/Kelurahan/Desa"] || "",
             bidangKegiatan: row["Bidang Kegiatan"] || "",
@@ -312,5 +313,165 @@ export async function submitReport(payload, onProgress) {
     success: true,
     cloudSync: false,
     message: "Laporan tersimpan di memori aplikasi lokal! Hubungkan Web App URL Google Apps Script di menu 'Pengaturan' untuk otomatis simpan ke Google Sheet & Drive.",
+  };
+}
+
+/**
+ * Memperbarui / Mengedit laporan yang sudah ada
+ */
+export async function updateReport(reportId, payload, onProgress) {
+  const config = getConfig();
+
+  if (onProgress) onProgress("Menyiapkan pembaruan data laporan...");
+
+  // 1. Perbarui di localStorage
+  let localReports = JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS) || "[]");
+  
+  // Format preview URLs gabungan antara file baru dan file lama yang dipertahankan
+  const newFotoKegiatanBase64 = Array.isArray(payload.fotoKegiatan) ? payload.fotoKegiatan.map(f => f.base64).filter(Boolean) : [];
+  const existingFotoKegiatanList = Array.isArray(payload.existingFotoKegiatan) ? payload.existingFotoKegiatan : (payload.existingFotoKegiatan ? [payload.existingFotoKegiatan] : []);
+  const combinedFotoKegiatan = [...existingFotoKegiatanList, ...newFotoKegiatanBase64].filter(Boolean).join('\n');
+
+  const newFotoKonsumsiBase64 = Array.isArray(payload.fotoKonsumsi) ? payload.fotoKonsumsi.map(f => f.base64).filter(Boolean) : [];
+  const existingFotoKonsumsiList = Array.isArray(payload.existingFotoKonsumsi) ? payload.existingFotoKonsumsi : (payload.existingFotoKonsumsi ? [payload.existingFotoKonsumsi] : []);
+  const combinedFotoKonsumsi = [...existingFotoKonsumsiList, ...newFotoKonsumsiBase64].filter(Boolean).join('\n');
+
+  const newFotoMaterialBase64 = Array.isArray(payload.fotoMaterial) ? payload.fotoMaterial.map(f => f.base64).filter(Boolean) : [];
+  const existingFotoMaterialList = Array.isArray(payload.existingFotoMaterial) ? payload.existingFotoMaterial : (payload.existingFotoMaterial ? [payload.existingFotoMaterial] : []);
+  const combinedFotoMaterial = [...existingFotoMaterialList, ...newFotoMaterialBase64].filter(Boolean).join('\n');
+
+  const newDaftarHadirBase64 = Array.isArray(payload.daftarHadir) ? payload.daftarHadir.map(f => f.base64).filter(Boolean) : [];
+  const existingDaftarHadirList = Array.isArray(payload.existingDaftarHadir) ? payload.existingDaftarHadir : (payload.existingDaftarHadir ? [payload.existingDaftarHadir] : []);
+  const combinedDaftarHadir = [...existingDaftarHadirList, ...newDaftarHadirBase64].filter(Boolean).join('\n');
+
+  let foundIndex = localReports.findIndex(r => r.id === reportId || (r.timestamp && r.timestamp === payload.timestamp));
+  if (foundIndex !== -1) {
+    localReports[foundIndex] = {
+      ...localReports[foundIndex],
+      ...payload,
+      fotoKegiatanUrl: combinedFotoKegiatan || localReports[foundIndex].fotoKegiatanUrl || "",
+      fotoKonsumsiUrl: combinedFotoKonsumsi || localReports[foundIndex].fotoKonsumsiUrl || "",
+      fotoMaterialUrl: combinedFotoMaterial || localReports[foundIndex].fotoMaterialUrl || "",
+      daftarHadirUrl: combinedDaftarHadir || localReports[foundIndex].daftarHadirUrl || "",
+    };
+    localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+  }
+
+  // 2. Jika Google Apps Script terhubung, kirim aksi update ke cloud
+  if (config.scriptUrl) {
+    if (onProgress) onProgress("Mengunggah berkas baru & menyimpan perubahan ke Google Sheets...");
+
+    try {
+      const response = await fetch(config.scriptUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+          action: "update",
+          id: reportId,
+          timestamp: payload.timestamp,
+          rowNumber: payload.rowNumber,
+          existingFotoKegiatan: existingFotoKegiatanList.join('\n'),
+          existingFotoKonsumsi: existingFotoKonsumsiList.join('\n'),
+          existingFotoMaterial: existingFotoMaterialList.join('\n'),
+          existingDaftarHadir: existingDaftarHadirList.join('\n'),
+          ...payload,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.status === "success") {
+        if (result.driveLinks && foundIndex !== -1) {
+          if (result.driveLinks.fotoKegiatan) localReports[foundIndex].fotoKegiatanUrl = result.driveLinks.fotoKegiatan;
+          if (result.driveLinks.fotoKonsumsi) localReports[foundIndex].fotoKonsumsiUrl = result.driveLinks.fotoKonsumsi;
+          if (result.driveLinks.fotoMaterial) localReports[foundIndex].fotoMaterialUrl = result.driveLinks.fotoMaterial;
+          if (result.driveLinks.daftarHadir) localReports[foundIndex].daftarHadirUrl = result.driveLinks.daftarHadir;
+          localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+        }
+
+        return {
+          success: true,
+          cloudSync: true,
+          message: "Perubahan laporan berhasil disimpan ke Google Sheets & Drive!",
+          result,
+        };
+      } else {
+        throw new Error(result.message || "Gagal dari Google Apps Script");
+      }
+    } catch (e) {
+      console.warn("Gagal sync update ke Google Apps Script:", e);
+      return {
+        success: true,
+        cloudSync: false,
+        message: `Perubahan disimpan di penyimpanan lokal (Cloud: ${e.message})`,
+      };
+    }
+  }
+
+  return {
+    success: true,
+    cloudSync: false,
+    message: "Perubahan laporan berhasil disimpan!",
+  };
+}
+
+/**
+ * Menghapus laporan dari sistem dan cloud
+ */
+export async function deleteReport(reportId, reportIdentifier, onProgress) {
+  const config = getConfig();
+
+  if (onProgress) onProgress("Menghapus data laporan...");
+
+  // 1. Hapus dari cache localStorage
+  let localReports = JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS) || "[]");
+  localReports = localReports.filter(r => {
+    if (reportId && r.id === reportId) return false;
+    if (reportIdentifier?.timestamp && r.timestamp === reportIdentifier.timestamp) return false;
+    return true;
+  });
+  localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+
+  // 2. Jika Google Apps Script terhubung, kirim aksi delete ke cloud
+  if (config.scriptUrl) {
+    if (onProgress) onProgress("Menghapus baris data dari Google Sheets...");
+
+    try {
+      const response = await fetch(config.scriptUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({
+          action: "delete",
+          id: reportId,
+          timestamp: reportIdentifier?.timestamp || "",
+          rowNumber: reportIdentifier?.rowNumber || null,
+          deskripsiKegiatan: reportIdentifier?.deskripsiKegiatan || "",
+        }),
+      });
+
+      const result = await response.json();
+      return {
+        success: true,
+        cloudSync: true,
+        message: "Laporan berhasil dihapus dari Google Sheets!",
+        result,
+      };
+    } catch (e) {
+      console.warn("Gagal sync delete ke Google Apps Script:", e);
+      return {
+        success: true,
+        cloudSync: false,
+        message: `Laporan telah dihapus dari tampilan lokal.`,
+      };
+    }
+  }
+
+  return {
+    success: true,
+    cloudSync: false,
+    message: "Laporan berhasil dihapus!",
   };
 }
