@@ -180,57 +180,14 @@ export default function Dashboard({
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 space-y-6">
       
-      {/* Top Header & Quick Actions (Tanpa Judul Ganda) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-            Rekapitulasi Partisipasi & Data Swadaya Masyarakat
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Akumulasi data kegiatan dan nilai ekonomi gotong royong warga se-Kecamatan Waru
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {onNewReport && (
-            <button
-              onClick={onNewReport}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-xs"
-              title="Buat Laporan Gotong Royong Baru"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Input Laporan</span>
-            </button>
-          )}
-
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200"
-            title="Sinkronkan data terbaru dari Google Sheets"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Sinkron Data</span>
-          </button>
-
-          <button
-            onClick={exportToCSV}
-            className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200"
-            title="Ekspor seluruh baris ke Excel/CSV"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-600" />
-            <span>Export CSV</span>
-          </button>
-
-          <button
-            onClick={onPrintAll}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white transition-colors cursor-pointer shadow-xs"
-            title="Cetak Berita Acara Rekapitulasi Resmi Kecamatan"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Cetak Rekap</span>
-          </button>
-        </div>
+      {/* Top Header */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+          Rekapitulasi Partisipasi & Data Swadaya Masyarakat
+        </h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Akumulasi data kegiatan dan nilai ekonomi gotong royong warga se-Kecamatan Waru
+        </p>
       </div>
 
       {/* METRIC STAT CARDS */}
