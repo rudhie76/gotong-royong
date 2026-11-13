@@ -49,6 +49,77 @@ export function saveConfig(newConfig) {
 }
 
 /**
+ * Membersihkan URL bertipe base64 mentah & objek berkas dari daftar laporan
+ * sebelum disimpan ke localStorage agar tidak melebihi kuota 5MB browser.
+ * Link resmi Google Drive (https://...) tetap dipertahankan.
+ */
+export function sanitizeReportsForLocalStorage(reports) {
+  if (!Array.isArray(reports)) return [];
+  return reports.map((report) => {
+    const clean = { ...report };
+
+    const sanitizeUrlField = (val) => {
+      if (!val) return "";
+      const lines = String(val).split('\n');
+      const validUrls = lines.map(line => {
+        const trimmed = line.trim();
+        // Singkirkan data base64 (diawali data: atau string sangat panjang tanpa https)
+        if (trimmed.startsWith('data:') || (trimmed.length > 500 && !trimmed.startsWith('http'))) {
+          return "";
+        }
+        return trimmed;
+      }).filter(Boolean);
+      return validUrls.join('\n');
+    };
+
+    clean.fotoKegiatanUrl = sanitizeUrlField(clean.fotoKegiatanUrl);
+    clean.fotoKonsumsiUrl = sanitizeUrlField(clean.fotoKonsumsiUrl);
+    clean.fotoMaterialUrl = sanitizeUrlField(clean.fotoMaterialUrl);
+    clean.daftarHadirUrl = sanitizeUrlField(clean.daftarHadirUrl);
+
+    // Hapus berkas mentah base64 yang membebani localStorage
+    delete clean.fotoKegiatan;
+    delete clean.fotoKonsumsi;
+    delete clean.fotoMaterial;
+    delete clean.daftarHadir;
+    delete clean.videoKegiatan;
+
+    return clean;
+  });
+}
+
+/**
+ * Menyimpan laporan ke localStorage dengan aman tanpa risiko QuotaExceededError
+ */
+export function safeSetLocalStorageReports(reports) {
+  try {
+    const sanitized = sanitizeReportsForLocalStorage(reports);
+    localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(sanitized));
+  } catch (err) {
+    console.warn("Storage quota exceeded saat menyimpan cache laporan. Melakukan pembersihan cache:", err);
+    try {
+      // Jika penyimpanan browser penuh, simpan 10 laporan terbaru saja
+      const trimmed = sanitizeReportsForLocalStorage(reports).slice(0, 10);
+      localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(trimmed));
+    } catch (err2) {
+      console.warn("Gagal menyimpan ke cache lokal:", err2);
+      // JANGAN LEMPAR ERROR: Jangan biarkan kegagalan cache browser menghentikan proses simpan ke Google Sheets!
+    }
+  }
+}
+
+// Inisialisasi: otomatis bersihkan localStorage jika sebelumnya tersimpan data base64
+try {
+  const existingRaw = localStorage.getItem(STORAGE_KEY_REPORTS);
+  if (existingRaw && (existingRaw.includes('data:image') || existingRaw.length > 200000)) {
+    const parsed = JSON.parse(existingRaw);
+    safeSetLocalStorageReports(parsed);
+  }
+} catch (e) {
+  console.warn("Inisialisasi pembersihan cache lokal:", e);
+}
+
+/**
  * Kompres gambar di sisi browser agar ukuran berkas kecil (< 300KB)
  * dan cepat terunggah ke Google Drive melalui Google Apps Script.
  */
@@ -203,8 +274,8 @@ export async function fetchReports() {
             catatanTambahan: row["Catatan / Keterangan Tambahan"] || "",
           }));
 
-          // Simpan ke cache lokal
-          localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(mapped));
+          // Simpan ke cache lokal secara aman
+          safeSetLocalStorageReports(mapped);
           return { data: mapped, source: "google_sheet" };
         }
       }
@@ -235,7 +306,9 @@ export async function submitReport(payload, onProgress) {
 
   if (onProgress) onProgress("Menyiapkan berkas dan data laporan...");
 
-  // Simpan terlebih dahulu ke cache lokal
+  // Pisahkan berkas mentah base64 agar tidak membebani memori lokal
+  const { fotoKegiatan, fotoKonsumsi, fotoMaterial, daftarHadir, videoKegiatan, ...payloadWithoutFiles } = payload;
+
   const localReports = JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS) || "[]");
   const newReportLocal = {
     id: `local-${Date.now()}`,
@@ -244,28 +317,19 @@ export async function submitReport(payload, onProgress) {
       timeStyle: "medium",
       timeZone: "Asia/Makassar",
     }).format(new Date()),
-    ...payload,
-    // Jika ada file object / array, buat URL preview objek lokal
-    fotoKegiatanUrl: Array.isArray(payload.fotoKegiatan)
-      ? payload.fotoKegiatan.map(f => f.base64).join('\n')
-      : (payload.fotoKegiatan?.base64 || payload.fotoKegiatanUrl || ""),
-    fotoKonsumsiUrl: Array.isArray(payload.fotoKonsumsi)
-      ? payload.fotoKonsumsi.map(f => f.base64).join('\n')
-      : (payload.fotoKonsumsi?.base64 || payload.fotoKonsumsiUrl || ""),
-    fotoMaterialUrl: Array.isArray(payload.fotoMaterial)
-      ? payload.fotoMaterial.map(f => f.base64).join('\n')
-      : (payload.fotoMaterial?.base64 || payload.fotoMaterialUrl || ""),
-    daftarHadirUrl: Array.isArray(payload.daftarHadir)
-      ? payload.daftarHadir.map(f => f.base64).join('\n')
-      : (payload.daftarHadir?.base64 || payload.daftarHadirUrl || ""),
+    ...payloadWithoutFiles,
+    fotoKegiatanUrl: payload.fotoKegiatanUrl || "",
+    fotoKonsumsiUrl: payload.fotoKonsumsiUrl || "",
+    fotoMaterialUrl: payload.fotoMaterialUrl || "",
+    daftarHadirUrl: payload.daftarHadirUrl || "",
   };
 
   localReports.unshift(newReportLocal);
-  localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+  safeSetLocalStorageReports(localReports);
 
   // Jika URL Google Apps Script telah diset, kirim ke cloud
   if (config.scriptUrl) {
-    if (onProgress) onProgress("Mengunggah berkas dokumentasi...");
+    if (onProgress) onProgress("Mengunggah berkas dokumentasi ke Google Drive...");
 
     try {
       const response = await fetch(config.scriptUrl, {
@@ -276,7 +340,7 @@ export async function submitReport(payload, onProgress) {
         body: JSON.stringify(payload),
       });
 
-      if (onProgress) onProgress("Menyimpan data laporan...");
+      if (onProgress) onProgress("Menyimpan data laporan ke Google Sheets...");
 
       const result = await response.json();
       if (result.status === "success") {
@@ -286,7 +350,7 @@ export async function submitReport(payload, onProgress) {
           if (result.driveLinks.fotoKonsumsi) newReportLocal.fotoKonsumsiUrl = result.driveLinks.fotoKonsumsi;
           if (result.driveLinks.fotoMaterial) newReportLocal.fotoMaterialUrl = result.driveLinks.fotoMaterial;
           if (result.driveLinks.daftarHadir) newReportLocal.daftarHadirUrl = result.driveLinks.daftarHadir;
-          localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+          safeSetLocalStorageReports(localReports);
         }
 
         return {
@@ -324,37 +388,27 @@ export async function updateReport(reportId, payload, onProgress) {
 
   if (onProgress) onProgress("Menyiapkan pembaruan data laporan...");
 
-  // 1. Perbarui di localStorage
-  let localReports = JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS) || "[]");
-  
-  // Format preview URLs gabungan antara file baru dan file lama yang dipertahankan
-  const newFotoKegiatanBase64 = Array.isArray(payload.fotoKegiatan) ? payload.fotoKegiatan.map(f => f.base64).filter(Boolean) : [];
+  // Format link Google Drive lama yang dipertahankan
   const existingFotoKegiatanList = Array.isArray(payload.existingFotoKegiatan) ? payload.existingFotoKegiatan : (payload.existingFotoKegiatan ? [payload.existingFotoKegiatan] : []);
-  const combinedFotoKegiatan = [...existingFotoKegiatanList, ...newFotoKegiatanBase64].filter(Boolean).join('\n');
-
-  const newFotoKonsumsiBase64 = Array.isArray(payload.fotoKonsumsi) ? payload.fotoKonsumsi.map(f => f.base64).filter(Boolean) : [];
   const existingFotoKonsumsiList = Array.isArray(payload.existingFotoKonsumsi) ? payload.existingFotoKonsumsi : (payload.existingFotoKonsumsi ? [payload.existingFotoKonsumsi] : []);
-  const combinedFotoKonsumsi = [...existingFotoKonsumsiList, ...newFotoKonsumsiBase64].filter(Boolean).join('\n');
-
-  const newFotoMaterialBase64 = Array.isArray(payload.fotoMaterial) ? payload.fotoMaterial.map(f => f.base64).filter(Boolean) : [];
   const existingFotoMaterialList = Array.isArray(payload.existingFotoMaterial) ? payload.existingFotoMaterial : (payload.existingFotoMaterial ? [payload.existingFotoMaterial] : []);
-  const combinedFotoMaterial = [...existingFotoMaterialList, ...newFotoMaterialBase64].filter(Boolean).join('\n');
-
-  const newDaftarHadirBase64 = Array.isArray(payload.daftarHadir) ? payload.daftarHadir.map(f => f.base64).filter(Boolean) : [];
   const existingDaftarHadirList = Array.isArray(payload.existingDaftarHadir) ? payload.existingDaftarHadir : (payload.existingDaftarHadir ? [payload.existingDaftarHadir] : []);
-  const combinedDaftarHadir = [...existingDaftarHadirList, ...newDaftarHadirBase64].filter(Boolean).join('\n');
+
+  // 1. Perbarui di localStorage secara aman (tanpa berkas mentah base64)
+  let localReports = JSON.parse(localStorage.getItem(STORAGE_KEY_REPORTS) || "[]");
+  const { fotoKegiatan, fotoKonsumsi, fotoMaterial, daftarHadir, videoKegiatan, ...payloadWithoutFiles } = payload;
 
   let foundIndex = localReports.findIndex(r => r.id === reportId || (r.timestamp && r.timestamp === payload.timestamp));
   if (foundIndex !== -1) {
     localReports[foundIndex] = {
       ...localReports[foundIndex],
-      ...payload,
-      fotoKegiatanUrl: combinedFotoKegiatan || localReports[foundIndex].fotoKegiatanUrl || "",
-      fotoKonsumsiUrl: combinedFotoKonsumsi || localReports[foundIndex].fotoKonsumsiUrl || "",
-      fotoMaterialUrl: combinedFotoMaterial || localReports[foundIndex].fotoMaterialUrl || "",
-      daftarHadirUrl: combinedDaftarHadir || localReports[foundIndex].daftarHadirUrl || "",
+      ...payloadWithoutFiles,
+      fotoKegiatanUrl: existingFotoKegiatanList.join('\n') || localReports[foundIndex].fotoKegiatanUrl || "",
+      fotoKonsumsiUrl: existingFotoKonsumsiList.join('\n') || localReports[foundIndex].fotoKonsumsiUrl || "",
+      fotoMaterialUrl: existingFotoMaterialList.join('\n') || localReports[foundIndex].fotoMaterialUrl || "",
+      daftarHadirUrl: existingDaftarHadirList.join('\n') || localReports[foundIndex].daftarHadirUrl || "",
     };
-    localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+    safeSetLocalStorageReports(localReports);
   }
 
   // 2. Jika Google Apps Script terhubung, kirim aksi update ke cloud
@@ -390,7 +444,7 @@ export async function updateReport(reportId, payload, onProgress) {
           if (result.driveLinks.fotoKonsumsi) localReports[foundIndex].fotoKonsumsiUrl = result.driveLinks.fotoKonsumsi;
           if (result.driveLinks.fotoMaterial) localReports[foundIndex].fotoMaterialUrl = result.driveLinks.fotoMaterial;
           if (result.driveLinks.daftarHadir) localReports[foundIndex].daftarHadirUrl = result.driveLinks.daftarHadir;
-          localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+          safeSetLocalStorageReports(localReports);
         }
 
         if (isOldScriptVersion) {
@@ -445,7 +499,7 @@ export async function deleteReport(reportId, reportIdentifier, onProgress) {
     if (reportIdentifier?.timestamp && r.timestamp === reportIdentifier.timestamp) return false;
     return true;
   });
-  localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(localReports));
+  safeSetLocalStorageReports(localReports);
 
   // 2. Jika Google Apps Script terhubung, kirim aksi delete ke cloud
   if (config.scriptUrl) {

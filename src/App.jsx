@@ -8,7 +8,7 @@ import DetailModal from './components/DetailModal';
 import CetakLaporan from './components/CetakLaporan';
 import PengaturanModal from './components/PengaturanModal';
 import { SAMPLE_REPORTS } from './constants';
-import { fetchReports, deleteReport, getConfig } from './services/apiService';
+import { fetchReports, deleteReport, getConfig, safeSetLocalStorageReports } from './services/apiService';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); // Default menu utama adalah Dashboard
@@ -53,7 +53,7 @@ export default function App() {
         setDataSource(res.source);
       } else {
         setReports(SAMPLE_REPORTS);
-        localStorage.setItem("sigap_gotong_royong_reports", JSON.stringify(SAMPLE_REPORTS));
+        safeSetLocalStorageReports(SAMPLE_REPORTS);
         setDataSource('local_storage');
       }
     } catch (err) {
