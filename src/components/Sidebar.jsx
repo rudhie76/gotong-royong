@@ -26,8 +26,8 @@ export default function Sidebar({
   const menuItems = [
     {
       id: 'dashboard',
-      label: 'Dashboard & Rekap',
-      sublabel: 'Statistik & rekapitulasi data',
+      label: 'Dashboard',
+      sublabel: 'Statistik & data kegiatan',
       icon: LayoutDashboard,
       onClick: () => {
         setActiveTab('dashboard');

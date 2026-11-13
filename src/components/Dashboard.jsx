@@ -183,7 +183,7 @@ export default function Dashboard({
       {/* Top Header */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
         <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-          Rekapitulasi Partisipasi & Data Swadaya Masyarakat
+          Dashboard Partisipasi & Data Swadaya Masyarakat
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
           Akumulasi data kegiatan dan nilai ekonomi gotong royong warga se-Kecamatan Waru

@@ -418,7 +418,7 @@ export default function FormPelaporan({
                   onClick={onViewDashboard}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl shadow-xs cursor-pointer transition-colors"
                 >
-                  Lihat di Dashboard Rekapitulasi →
+                  Lihat di Dashboard →
                 </button>
                 <button
                   type="button"
